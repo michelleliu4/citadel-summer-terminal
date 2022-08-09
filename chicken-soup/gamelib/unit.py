@@ -45,6 +45,8 @@ class GameUnit:
         self.y = y
         self.__serialize_type()
         self.health = self.max_health if not health else health
+        self.shield = 0 # should be 0 to start, right? or am i trippin
+        self.supported_by = []
 
     def __serialize_type(self):
         from .game_state import STRUCTURE_TYPES, UNIT_TYPE_TO_INDEX, SUPPORT
