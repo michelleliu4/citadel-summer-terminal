@@ -37,6 +37,8 @@ class GameMap:
         self.BOTTOM_RIGHT = 3
         self.__map = self.__empty_grid()
         self.__start = [13,0]
+
+        self.edges = self.get_edges()
     
     def __getitem__(self, location):
         if len(location) == 2 and self.in_arena_bounds(location):
@@ -167,7 +169,7 @@ class GameMap:
             self.warn("Player index {} is invalid. Player index should be 0 or 1.".format(player_index))
 
         x, y = location
-        new_unit = GameUnit(unit_type, self.config, player_index, None, location[0], location[1])
+        new_unit = GameUnit(unit_type, self.config, player_index, None, location[0], location[1], self.spawn_loc_to_target_edge(location))
         if not new_unit.stationary:
             self.__map[x][y].append(new_unit)
         else:
@@ -238,3 +240,20 @@ class GameMap:
         """
         if(self.enable_warnings):
             debug_write(message)
+
+    def spawn_loc_to_target_edge(self, spawn_loc):
+
+        e = 0
+        
+        for i, edge in enumerate(self.edges):
+
+            if spawn_loc in edge:
+
+                e = i
+                break
+
+        return (e + 2) % 4
+
+    def get_map(self):
+
+        return self.__map

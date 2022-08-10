@@ -4,7 +4,8 @@ import math
 import warnings
 from sys import maxsize
 import json
-
+import copy
+from simulator import Simulator
 
 """
 Most of the algo code you write will be in this file unless you create new
@@ -39,6 +40,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         SCOUT = config["unitInformation"][3]["shorthand"]
         DEMOLISHER = config["unitInformation"][4]["shorthand"]
         INTERCEPTOR = config["unitInformation"][5]["shorthand"]
+        #gamelib.debug_write(config)
         MP = 1
         SP = 0
         # This is a good place to do initial setup
@@ -57,7 +59,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.suppress_warnings(True)  #Comment or remove this line to enable warnings.
 
         self.starter_strategy(game_state)
-
+        sim_state = copy.deepcopy(game_state)
+        s = Simulator(sim_state)
+        s.simulate()
         game_state.submit_turn()
 
 

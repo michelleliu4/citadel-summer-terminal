@@ -1,14 +1,3 @@
-def is_stationary(unit_type, structure_types):
-    """
-        Args:
-            unit_type: A unit type
-        
-        Returns: 
-            Boolean, True if the unit is stationary, False otherwise.
-    """
-    return unit_type in structure_types
-
-
 class GameUnit:
     """Holds information about a Unit. 
 
@@ -32,7 +21,7 @@ class GameUnit:
         * upgraded (boolean): If this unit is upgraded
 
     """
-    def __init__(self, unit_type, config, player_index=None, health=None, x=-1, y=-1):
+    def __init__(self, unit_type, config, player_index=None, health=None, x=-1, y=-1, target_edge=None):
         """ Initialize unit variables using args passed
 
         """
@@ -47,6 +36,9 @@ class GameUnit:
         self.health = self.max_health if not health else health
         self.shield = 0 # should be 0 to start, right? or am i trippin
         self.supported_by = []
+        self.target_edge = target_edge
+        self.frames_until_move = 0
+        self.path = []
 
     def __serialize_type(self):
         from .game_state import STRUCTURE_TYPES, UNIT_TYPE_TO_INDEX, SUPPORT
