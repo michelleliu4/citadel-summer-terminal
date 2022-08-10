@@ -47,7 +47,7 @@ class GameMap:
         self._invalid_coordinates(location)
 
     def __setitem__(self, location, val):
-        if type(location) == tuple and len(location) == 2 and self.in_arena_bounds(location):
+        if type(location) in [tuple, list] and len(location) == 2 and self.in_arena_bounds(location):
             self.__map[location[0]][location[1]] = val
             return
         self._invalid_coordinates(location)

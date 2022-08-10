@@ -17,7 +17,7 @@ def targets(units):
 def conditional_append(l, e):
 
     if l == []:
-        l = [e]
+        l += [e]
         return
     
     l.append(e)
@@ -149,21 +149,21 @@ class Simulator():
                 
                 gamelib.debug_write(f"next_loc = {next_loc}")
 
-                if not self.game_state.game_map.in_arena_bounds(next_loc):
+                #if not self.game_state.game_map.in_arena_bounds(next_loc):
 
-                    # player # unit.player_index has scored, might want more stuff here
-                    gamelib.debug_write(f"player {abs(unit.player_index - 1)} scored on by {unit}")
-                    # unit gets deleted since we don't move it to a new cell, and it isn't in remaining
-                    continue
+                #    # player # unit.player_index has scored, might want more stuff here
+                #    gamelib.debug_write(f"player {abs(unit.player_index - 1)} scored on by {unit}")
+                #    # unit gets deleted since we don't move it to a new cell, and it isn't in remaining
+                #    continue
                 
                 unit.x, unit.y = next_loc
                 unit.frames_until_move = unit.speed #unit speed? check this
                 self.append_game_map_list(next_loc, unit)
                 gamelib.debug_write(f"unit {unit} moved")
-                gamelib.debug_write(f"proof {self.game_state.game_map[next_loc]}")
+                # gamelib.debug_write(f"proof {self.game_state.game_map[next_loc]}")
 
+            self.game_state.game_map.remove_unit(cell)
             self.game_state.game_map[cell] = remaining
-            gamelib.debug_write(f"proof2 {self.game_state.game_map[cell]}")
 
     def attack_all(self):
 
@@ -283,13 +283,16 @@ class Simulator():
 
             remaining = []
 
-            for unit in self.game_state.game_map[cell]:
-
+            for i in range(len(self.game_state.game_map[cell])):
+                
+                unit = self.game_state.game_map[cell][i]
+                
                 if unit.health != 0:
 
                     remaining.append(unit)
 
                     if not is_stationary(unit):
+                        gamelib.debug_write(f"mobile unit {unit} still exists") # ISSUE HERE IS THE is_stationary FUNCTION! It don't work!
                         mobile_units_remain = True
 
                     continue
@@ -299,10 +302,9 @@ class Simulator():
                     stationary_destroyed = True
                     continue
 
-                mobile_units_remain = True
-
                 gamelib.debug_write(f"unit destroyed: {unit}")
             
+            self.game_state.game_map.remove_unit(cell)
             self.game_state.game_map[cell] = remaining
 
         return stationary_destroyed, mobile_units_remain
@@ -312,7 +314,6 @@ class Simulator():
         t = self.game_state.game_map[l]
         conditional_append(t, e)
         self.game_state.game_map[l] = t
-
 
     def simulate(self):
 
