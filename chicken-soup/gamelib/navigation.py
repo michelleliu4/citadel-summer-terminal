@@ -3,6 +3,7 @@ import math
 import sys
 import queue
 from .util import debug_write
+from .game_state import is_stationary
 
 class Node:
     """A pathfinding node
@@ -51,6 +52,39 @@ class ShortestPathFinder:
         self.initialized = True
         self.game_state = game_state
         self.game_map = [[Node() for x in range(self.game_state.ARENA_SIZE)] for y in range(self.game_state.ARENA_SIZE)]
+
+    def fill_walls(self, units):
+
+        for unit in units:
+
+            if is_stationary(unit.unit_type):
+
+                self.game_map[unit.x][unit.y].blocked = True
+    
+    def navigate_multiple_endpoints_faster(self, start_point, end_points, game_state, units):
+        """Finds the path a unit would take to reach a set of endpoints
+
+        Args:
+            * start_point: The starting location of the unit
+            * end_points: The end points of the unit, should be a list of edge locations
+            * game_state: The current game state
+
+        Returns:
+            The path a unit at start_point would take when trying to reach end_points given the current game state.
+            Note that this path can change if a tower is destroyed during pathing, or if you or your enemy places structures.
+
+        """
+        if game_state.contains_stationary_unit(start_point):
+            return
+
+        #Initialize map 
+        self.initialize_map(game_state)
+        #Fill in walls
+        self.fill_walls(units)
+        #Do pathfinding
+        ideal_endpoints = self._idealness_search(start_point, end_points)
+        self._validate(ideal_endpoints, end_points)
+        return self._get_path(start_point, end_points)
 
     def navigate_multiple_endpoints(self, start_point, end_points, game_state):
         """Finds the path a unit would take to reach a set of endpoints

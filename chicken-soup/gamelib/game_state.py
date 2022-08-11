@@ -535,6 +535,69 @@ class GameState:
         self.enable_warnings = not suppress
         self.game_map.enable_warnings = not suppress
 
+    def get_target_from_units(self, attacking_unit, targets):
+        
+        attacker_location = [attacking_unit.x, attacking_unit.y]
+        target = None
+        target_stationary = True
+        target_distance = sys.maxsize
+        target_health = sys.maxsize
+        target_y = self.ARENA_SIZE
+        target_x_distance = 0
+
+        for unit in targets:
+            if unit.player_index == attacking_unit.player_index or (attacking_unit.damage_f == 0 and is_stationary(unit.unit_type)) or (attacking_unit.damage_i == 0 and not(is_stationary(unit.unit_type))):
+                continue
+
+            new_target = False
+            unit_stationary = unit.stationary
+            unit_distance = self.game_map.distance_between_locations(location, [attacking_unit.x, attacking_unit.y])
+            unit_health = unit.health
+            unit_y = unit.y
+            unit_x_distance = abs(self.HALF_ARENA - 0.5 - unit.x)
+
+            if target_stationary and not unit_stationary:
+                new_target = True
+            elif not target_stationary and unit_stationary:
+                continue
+            
+            if target_distance > unit_distance:
+                new_target = True
+            elif target_distance < unit_distance and not new_target:
+                continue
+
+            if target_health > unit_health:
+                new_target = True
+            elif target_health < unit_health and not new_target:
+                continue
+
+            # Compare height heuristic relative to attacking unit's player index
+            if attacking_unit.player_index == 0:
+                if target_y > unit_y:
+                    new_target = True
+                elif target_y < unit_y and not new_target:
+                    continue
+            else:
+                if target_y < unit_y:
+                    new_target = True
+                elif target_y > unit_y and not new_target:
+                    continue
+
+            if target_x_distance < unit_x_distance:
+                new_target = True
+            
+            if new_target:
+                target = unit
+                target_stationary = unit_stationary
+                target_distance = unit_distance
+                target_health = unit_health
+                target_y = unit_y
+                target_x_distance = unit_x_distance
+                
+        return target
+
+        
+
     def get_target(self, attacking_unit):
         """Returns target of given unit based on current map of the game board. 
         A Unit can often have many other units in range, and Units that attack do so once each frame.
