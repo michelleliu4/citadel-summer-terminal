@@ -1,4 +1,4 @@
-import sys
+import sys, time
 
 
 BANNER_TEXT = "---------------- Starting Your Algo --------------------"
@@ -39,3 +39,16 @@ def debug_write(*msg):
     #Printing to STDERR is okay and printed out by the game but doesn't effect turns.
     sys.stderr.write(", ".join(map(str, msg)).strip() + "\n")
     sys.stderr.flush()
+
+
+def time_this(func):
+
+    def wrap(*args, **kwargs):
+        s = time.perf_counter()
+        r = func(*args, **kwargs)
+        e = time.perf_counter()
+
+        debug_write(f"{func.__name__} took {e-s}")
+        return r
+
+    return wrap

@@ -6,6 +6,7 @@ from sys import maxsize
 import json
 import copy
 from simulator import Simulator
+import time
 
 """
 Most of the algo code you write will be in this file unless you create new
@@ -59,9 +60,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.suppress_warnings(True)  #Comment or remove this line to enable warnings.
 
         self.starter_strategy(game_state)
-        sim_state = copy.deepcopy(game_state)
-        s = Simulator(sim_state)
-        s.simulate()
+
         game_state.submit_turn()
 
 

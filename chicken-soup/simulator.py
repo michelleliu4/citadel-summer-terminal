@@ -1,6 +1,7 @@
-import gamelib, copy
+import gamelib, copy, time
 from gamelib.game_map import GameMap
 from gamelib.game_state import is_stationary
+from gamelib.util import time_this
 
 def targets(units):
 
@@ -21,17 +22,6 @@ def conditional_append(l, e):
         return
     
     l.append(e)
-
-def damage_unit(target, amount):
-
-    total = target.health + target.shield
-    after_attack = max(0, total - amount)
-    if after_attack < target.max_health:
-        target.health = after_attack
-        target.shield = 0
-        return
-    target.health = target.max_health
-    target.shield = after_attack - target.max_health
 
 def calculate_shield_bonus(support):
 
@@ -72,6 +62,8 @@ class Simulator():
         UNIT_TYPE_TO_INDEX[INTERCEPTOR] = 5
 
         self.it = GameMap(self.game_state.config)
+        self.removal_needed = False
+        self.mobile_units_remain = True
 
     def pathfind_all(self):
 
@@ -121,7 +113,8 @@ class Simulator():
                     remaining.append(unit)
                     break
 
-                gamelib.debug_write(f"non-stationary unit at {cell}")
+                #gamelib.debug_write(f"non-stationary unit at {cell}")
+                self.mobile_units_remain = True
 
                 if unit.frames_until_move > 0:
                     
@@ -147,7 +140,7 @@ class Simulator():
                     next_loc = unit.path[0]
                     unit.path = unit.path[1:]
                 
-                gamelib.debug_write(f"next_loc = {next_loc}")
+                #gamelib.debug_write(f"next_loc = {next_loc}")
 
                 #if not self.game_state.game_map.in_arena_bounds(next_loc):
 
@@ -159,7 +152,7 @@ class Simulator():
                 unit.x, unit.y = next_loc
                 unit.frames_until_move = unit.speed #unit speed? check this
                 self.append_game_map_list(next_loc, unit)
-                gamelib.debug_write(f"unit {unit} moved")
+                #gamelib.debug_write(f"unit {unit} moved")
                 # gamelib.debug_write(f"proof {self.game_state.game_map[next_loc]}")
 
             self.game_state.game_map.remove_unit(cell)
@@ -233,7 +226,7 @@ class Simulator():
 
                     target.shield += unit.shieldPerUnit + calculate_shield_bonus(unit)
                     target.supported_by.append(unit)
-                    gamelib.debug_write(f"unit {target} receives support from {unit}")
+                    #gamelib.debug_write(f"unit {target} receives support from {unit}")
 
     def handle_self_destruct(self, unit):
         loc = [unit.x, unit.y]
@@ -256,11 +249,11 @@ class Simulator():
 
                     continue
 
-                damage_unit(target, unit.health)
+                self.damage_unit(target, unit.health)
 
-        gamelib.debug_write(f"unit {unit} self destructs")
+        #gamelib.debug_write(f"unit {unit} self destructs")
         unit.health = 0
-
+        self.removal_needed = True
 
     def handle_attack(self, attacker, target):
 
@@ -270,14 +263,13 @@ class Simulator():
             damage_unit(target, attacker.damage_f)
             return
         
-        damage_unit(target, attacker.damage_i)
+        self.damage_unit(target, attacker.damage_i)
 
-        gamelib.debug_write(f"unit {attacker} damages {target}")
+        #gamelib.debug_write(f"unit {attacker} damages {target}")
 
     def remove_destroyed(self):
 
         stationary_destroyed = False
-        mobile_units_remain = False
 
         for cell in self.it:
 
@@ -291,23 +283,19 @@ class Simulator():
 
                     remaining.append(unit)
 
-                    if not is_stationary(unit):
-                        gamelib.debug_write(f"mobile unit {unit} still exists") # ISSUE HERE IS THE is_stationary FUNCTION! It don't work!
-                        mobile_units_remain = True
-
                     continue
 
-                if is_stationary(unit):
+                if is_stationary(unit.unit_type):
 
                     stationary_destroyed = True
                     continue
-
-                gamelib.debug_write(f"unit destroyed: {unit}")
             
             self.game_state.game_map.remove_unit(cell)
             self.game_state.game_map[cell] = remaining
 
-        return stationary_destroyed, mobile_units_remain
+        self.removal_needed = False
+
+        return stationary_destroyed
 
     def append_game_map_list(self, l, e):
 
@@ -315,30 +303,61 @@ class Simulator():
         conditional_append(t, e)
         self.game_state.game_map[l] = t
 
+    def damage_unit(self, target, amount):
+
+        total = target.health + target.shield
+        after_attack = max(0, total - amount)
+        if after_attack < target.max_health:
+            target.health = after_attack
+            target.shield = 0
+            return
+        target.health = target.max_health
+        target.shield = after_attack - target.max_health
+
+        if target.health == 0: 
+            self.removal_needed = True
+
     def simulate(self):
 
+        t = {'path':0, 'support':0, 'move':0, 'attack':0, 'removal':0}
+
         stationary_units_destroyed = True
-        mobile_units_remain = True
 
         frame_count = 0
 
-        while mobile_units_remain:
+        while self.mobile_units_remain:
+
+            self.mobile_units_remain = False
 
             gamelib.debug_write(f"simulating frame {frame_count}")
 
             if stationary_units_destroyed:
+                t1 = time.perf_counter()
                 self.pathfind_all()
+                t2 = time.perf_counter()
+                t['path'] += t2 - t1
                 stationary_units_destroyed = False
-
+            t3 = time.perf_counter()
             self.support_all()
+            t4 = time.perf_counter()
             self.move_all()
+            t5 = time.perf_counter()
             self.attack_all()
+            t6 = time.perf_counter()
 
-            stationary_units_destroyed, mobile_units_remain = self.remove_destroyed()
-            gamelib.debug_write(f"{stationary_units_destroyed=}, {mobile_units_remain=}")
+            t['support'] += t4 - t3
+            t['move'] += t5 - t4
+            t['attack'] += t6 - t5 
+
+            if self.removal_needed:
+                t7 = time.perf_counter()
+                stationary_units_destroyed = self.remove_destroyed()
+                t8 = time.perf_counter()
+                t['removal'] += t8 - t7
+            gamelib.debug_write(f"{stationary_units_destroyed=}, {self.mobile_units_remain=}")
             frame_count += 1
 
-            assert frame_count < 120
+        return t
 
 
 
