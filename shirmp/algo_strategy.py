@@ -86,11 +86,11 @@ class AlgoStrategy(gamelib.AlgoCore):
             pass the enemy defenses.
         """
 
-
+        
+        self.build_reactive_defense(game_state)
         # First, place basic defenses
         self.build_defences(game_state)
         # Now build reactive defenses based on where the enemy scored
-        #self.build_reactive_defense(game_state)
 
         # If the turn is less than 5, stall with interceptors and wait to see enemy's base
         if game_state.turn_number < 2:
@@ -105,8 +105,8 @@ class AlgoStrategy(gamelib.AlgoCore):
                 #demo_spawn_location_options = [[15, 1], [12, 1]]
                 #best_location = self.least_damage_spawn_location(game_state, demo_spawn_location_options)
 
-                game_state.attempt_spawn(DEMOLISHER, [15, 1], 2)
-                game_state.attempt_spawn(SCOUT, [16, 2], 100)
+                game_state.attempt_spawn(DEMOLISHER, [16, 2], 2)
+                game_state.attempt_spawn(SCOUT, [15, 1], 100)
 
     def build_defences(self, game_state):
         """
