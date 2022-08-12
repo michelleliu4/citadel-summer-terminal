@@ -56,6 +56,7 @@ class Simulator():
             self.units += self.game_state.game_map[cell]
 
         self.enemy_health_damage = 0
+        self.friendly_health_damage = 0
 
     def units_in_range(self, unit, units, r, f=lambda x: True):
         # this probably doesn't have to be a class method since self isn't used at all but also who cares
@@ -128,8 +129,13 @@ class Simulator():
 
                 if [unit.x, unit.y] in self.edges[unit.target_edge]:
 
-                    self.enemy_health_damage += 1
-                    #gamelib.debug_write(f"unit {unit} scores on enemy.")
+                    if unit.player_index == 0:
+
+                        self.enemy_health_damage += 1
+                        #gamelib.debug_write(f"unit {unit} scores on enemy.")
+                    else:
+                        self.friendly_health_damage += 1
+
                     unit.active = False
                     self.removal_needed = True
                     continue
@@ -286,7 +292,7 @@ class Simulator():
 
                 stationary_units_destroyed = True
 
-            gamelib.debug_write(f"unit {unit} destroyed")
+            #gamelib.debug_write(f"unit {unit} destroyed")
 
         # this basically forgets the old units
         self.units = n
@@ -347,7 +353,7 @@ class Simulator():
             #gamelib.debug_write(f"{stationary_units_destroyed=}, {self.mobile_units_remain=}")
             frame_count += 1
         gamelib.debug_write(f"{frame_count} frames simulated")
-        return {'times': t, 'score': self.enemy_health_damage}
+        return {'times': t, 'friendly_score': self.enemy_health_damage, 'enemy_score': self.friendly_health_damage}
 
 
 
