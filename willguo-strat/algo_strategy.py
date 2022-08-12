@@ -137,7 +137,7 @@ class AlgoStrategy(gamelib.AlgoCore):
                 game_state.attempt_spawn(INTERCEPTOR, [21, 8], 1)
                 game_state.attempt_spawn(INTERCEPTOR, [19, 7], 1)
     def sell_early(self, game_state):
-        wall_locations = [[3, 11], [5, 11], [22, 11], [24, 11], [4, 10], [6, 10], [21, 10], [23, 10], [6, 9], [21, 9], [7, 8], [20, 8], [7, 7], [20, 7]]
+        wall_locations = [[3, 11], [5, 11], [22, 11], [24, 11], [4, 10], [6, 10], [23, 10], [6, 9], [21, 9], [7, 8], [20, 8], [7, 7], [20, 7]]
         game_state.attempt_remove(wall_locations)
     def build_early_defences(self, game_state):
         wall_locations = [[3, 11], [5, 11], [22, 11], [24, 11], [4, 10], [6, 10], [21, 10], [23, 10], [6, 9], [21, 9], [7, 8], [20, 8], [7, 7], [20, 7]]
