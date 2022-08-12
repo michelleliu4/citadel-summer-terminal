@@ -3,6 +3,7 @@ from gamelib.game_map import GameMap
 from gamelib.game_state import is_stationary
 from gamelib.util import time_this
 import math
+import time
 
 def euc_dist(a, b):
 
@@ -17,6 +18,37 @@ def calculate_shield_bonus(support):
         y = 28 - y
 
     return y * support.shieldBonusPerY
+
+def simulate_multiple(current_state, strategies, info, opt):
+    # here, strategies are functions that modify the current state to produce simulatable attacks.
+    # info should be a datastructure expected by the strategy functions, perhaps communicating relevant past patterns and such
+    # opt is the optimizer to be used to choose the best strategy or strategies.
+
+    results = []
+
+    s = None
+
+    t1 = time.perf_counter()
+
+    for strategy in strategies:
+
+        sim_state = strategy(copy.deepcopy(current_state), info)
+
+        if not s:
+            s = Simulator(sim_state)
+        else:
+            s.reset(sim_state)
+
+        results.append(s.simulate())
+
+        # if we've spent more than 4 seconds simulating, don't attempt to simulate any more
+        if time.perf_counter() - t1 > 4:
+
+            break
+    
+    return opt(strategies, results)
+
+
 
 class Simulator():
 
@@ -51,6 +83,22 @@ class Simulator():
         self.units = []
 
         # the only time we iterate through the game map, yaaay!
+        for cell in self.game_state.game_map:
+
+            self.units += self.game_state.game_map[cell]
+
+        self.enemy_health_damage = 0
+        self.friendly_health_damage = 0
+
+    def reset(self, game_state):
+
+        self.game_state = game_state
+
+        self.removal_needed = False
+        self.mobile_units_remain = True
+
+        self.units = []
+
         for cell in self.game_state.game_map:
 
             self.units += self.game_state.game_map[cell]
@@ -321,7 +369,14 @@ class Simulator():
 
         frame_count = 0
 
+        sim_complete = True
+
         while self.mobile_units_remain:
+
+            if frame_count > 500:
+
+                sim_complete = False
+                break
 
             #gamelib.debug_write(f"simulating frame {frame_count}")
 
@@ -353,7 +408,7 @@ class Simulator():
             #gamelib.debug_write(f"{stationary_units_destroyed=}, {self.mobile_units_remain=}")
             frame_count += 1
         gamelib.debug_write(f"{frame_count} frames simulated")
-        return {'times': t, 'friendly_score': self.enemy_health_damage, 'enemy_score': self.friendly_health_damage}
+        return {'times': t, 'friendly_score': self.enemy_health_damage, 'enemy_score': self.friendly_health_damage, 'complete': sim_complete}
 
 
 
