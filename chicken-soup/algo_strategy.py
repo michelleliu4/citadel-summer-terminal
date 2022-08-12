@@ -76,7 +76,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         for k in r['times']:
             total += r['times'][k]
         gamelib.debug_write(f"{total=}")
-        self.pred_last = r['score']
+        self.pred_last = r['friendly_score']
         game_state.submit_turn()
         assert game_state.turn_number < 20
     """
