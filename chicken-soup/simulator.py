@@ -103,9 +103,10 @@ class Simulator():
             
             else:
 
-                #gamelib.debug_write(f"pathfinding for edge {unit.target_edge} at {unit.x},{unit.y}")
+                #gamelib.debug_write(f"pathfinding for edge {unit.target_edge} at [{unit.x},{unit.y}]")
 
                 path = self.pathfinder.navigate_multiple_endpoints_faster([unit.x, unit.y], self.edges[unit.target_edge], self.game_state, self.units)
+                #gamelib.debug_write(f"{path}")
                 unit.path = path
                 cache[k] = path
 
@@ -114,7 +115,7 @@ class Simulator():
 
         for unit in self.units:
 
-            if is_stationary(unit.unit_type):
+            if is_stationary(unit.unit_type) or not unit.active:
                 
                 continue
 
@@ -136,6 +137,11 @@ class Simulator():
                 # self destruct
                 self.handle_self_destruct(unit)
                 continue
+            
+            if unit.path == None:
+
+                #gamelib.debug_write(f"hmm strange, {unit} has no path")
+                assert False
 
             # getting next location of unit
             next_loc = unit.path[0]
@@ -150,7 +156,7 @@ class Simulator():
                 unit.path = unit.path[1:]
 
             unit.x, unit.y = next_loc
-            unit.frames_until_move = unit.speed # possibly correct
+            unit.frames_until_move = unit.speed - 1# possibly correct
 
             #gamelib.debug_write(f"move_unit at {unit.x},{unit.y}")
 
@@ -158,7 +164,6 @@ class Simulator():
 
     def attack_all(self):
 
-        # cache the targetable units at a given location bc when units are stacked it saves a fuckload of time
         cache = {}
 
         for unit in self.units:
@@ -167,22 +172,35 @@ class Simulator():
                 
                 continue
             
-            gamelib.debug_write(f"unit {unit} looking for targets")
+            #gamelib.debug_write(f"unit {unit} looking for targets")
 
-            if f"{unit.x},{unit.y}" in cache:
+            if f"{unit.x},{unit.y},{unit.attackRange}" in cache:
                 # then we can use cached targets
-                targets = cache[f"{unit.x},{unit.y}"]
+                targets = cache[f"{unit.x},{unit.y},{unit.attackRange}"]
 
             else:
 
-                targets = self.units_in_range(unit, self.units, unit.attackRange, f=lambda x: x.player_index != unit.player_index and x.active)
-                cache[f"{unit.x},{unit.y}"] = targets
+                if is_stationary(unit.unit_type):
+
+                    targets = self.units_in_range(unit, self.units, unit.attackRange, 
+                                                  f=lambda x: x.player_index != unit.player_index and x.active and x.health > 0 and not is_stationary(x.unit_type))
+
+                else:
+                    
+                    targets = self.units_in_range(unit, self.units, unit.attackRange, 
+                                                  f=lambda x: x.player_index != unit.player_index and x.active and x.health > 0)
+                    cache[f"{unit.x},{unit.y},{unit.attackRange}"] = targets
 
             if targets == []:
                 continue
+
+            #gamelib.debug_write(f"candidate targets: {targets}")
             
             target = self.game_state.get_target_from_units(unit, targets)
-            gamelib.debug_write(f"{target} targeted by {unit}")
+
+            if target == None: continue
+
+            #gamelib.debug_write(f"{target} targeted by {unit}")
 
             self.handle_attack(unit, target)
 
@@ -206,6 +224,10 @@ class Simulator():
                 target.shield += unit.shieldPerUnit + calculate_shield_bonus(unit)
                 #gamelib.debug_write(f"unit at {unit.x},{unit.y} supported {target}")
                 target.supported_by.append(unit)
+        
+        # rounds down shield which may or may not be accurate
+        for unit in self.units:
+            unit.shield = int(unit.shield) # THIS CAN BE REMOVED FOR POSSIBLY OVER-OPTIMISTIC PREDICTIONS
 
     def handle_self_destruct(self, unit):
 
@@ -229,12 +251,14 @@ class Simulator():
     def handle_attack(self, attacker, target):
 
         if is_stationary(target.unit_type):
-            damage_unit(target, attacker.damage_f)
-            return
-        
-        self.damage_unit(target, attacker.damage_i)
 
-        gamelib.debug_write(f"unit {attacker} damages {target}")
+            self.damage_unit(target, attacker.damage_f)
+            
+        else: 
+
+            self.damage_unit(target, attacker.damage_i)
+
+        #gamelib.debug_write(f"unit {attacker} damaged {target}")
 
     def remove_destroyed(self):
 
@@ -276,9 +300,9 @@ class Simulator():
         if after_attack < target.max_health:
             target.health = after_attack
             target.shield = 0
-            return
-        target.health = target.max_health
-        target.shield = after_attack - target.max_health
+        else:
+            target.health = target.max_health
+            target.shield = after_attack - target.max_health
 
         if target.health == 0: 
             self.removal_needed = True
@@ -293,7 +317,7 @@ class Simulator():
 
         while self.mobile_units_remain:
 
-            gamelib.debug_write(f"simulating frame {frame_count}")
+            #gamelib.debug_write(f"simulating frame {frame_count}")
 
             if stationary_units_destroyed:
                 t1 = time.perf_counter()
@@ -322,7 +346,7 @@ class Simulator():
                 self.removal_needed = False
             #gamelib.debug_write(f"{stationary_units_destroyed=}, {self.mobile_units_remain=}")
             frame_count += 1
-
+        gamelib.debug_write(f"{frame_count} frames simulated")
         return {'times': t, 'score': self.enemy_health_damage}
 
 
