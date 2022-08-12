@@ -6,7 +6,6 @@ from sys import maxsize
 import json
 import copy
 from gamelib import game_state
-from simulator import Simulator
 import time
 
 """
