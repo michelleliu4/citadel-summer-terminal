@@ -45,6 +45,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         SP = 0
         # This is a good place to do initial setup
         self.scored_on_locations = []
+        self.scored_last = 0
 
     def on_turn(self, turn_state):
         """
@@ -55,14 +56,15 @@ class AlgoStrategy(gamelib.AlgoCore):
         game engine.
         """
         game_state = gamelib.GameState(self.config, turn_state)
+        if game_state.turn_number != 0: gamelib.debug_write(f"last round actual score: {self.scored_last}")
         gamelib.debug_write('Performing turn {} of your custom algo strategy'.format(game_state.turn_number))
         game_state.suppress_warnings(True)  #Comment or remove this line to enable warnings.
-
         self.starter_strategy(game_state)
-
+        sim_state = copy.deepcopy(game_state)
+        s = Simulator(sim_state)
+        gamelib.debug_write(s.simulate())
         game_state.submit_turn()
-
-
+        assert game_state.turn_number < 20
     """
     NOTE: All the methods after this point are part of the sample starter-algo
     strategy and can safely be replaced for your custom algo.
@@ -236,9 +238,13 @@ class AlgoStrategy(gamelib.AlgoCore):
         Full doc on format of a game frame at in json-docs.html in the root of the Starterkit.
         """
         # Let's record at what position we get scored on
+
         state = json.loads(turn_string)
         events = state["events"]
         breaches = events["breach"]
+
+        self.scored_last = 0
+
         for breach in breaches:
             location = breach[0]
             unit_owner_self = True if breach[4] == 1 else False
@@ -248,7 +254,9 @@ class AlgoStrategy(gamelib.AlgoCore):
                 gamelib.debug_write("Got scored on at: {}".format(location))
                 self.scored_on_locations.append(location)
                 gamelib.debug_write("All locations: {}".format(self.scored_on_locations))
-
+            
+            else:
+                self.scored_last += 1
 
 if __name__ == "__main__":
     algo = AlgoStrategy()

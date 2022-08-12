@@ -171,6 +171,16 @@ class GameState:
     def _invalid_unit(self, unit):
         self.warn("Invalid unit {}".format(unit))
 
+    def is_stationary(self, unit_type):
+        """
+            Args:
+                unit_type: A unit type
+            
+            Returns: 
+                Boolean, True if the unit is stationary, False otherwise.
+        """
+        return unit_type in STRUCTURE_TYPES
+
     def submit_turn(self):
         """Submit and end your turn.
             Must be called at the end of your turn or the algo will hang.

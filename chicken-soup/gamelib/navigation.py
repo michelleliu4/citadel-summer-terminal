@@ -3,7 +3,6 @@ import math
 import sys
 import queue
 from .util import debug_write
-from .game_state import is_stationary
 
 class Node:
     """A pathfinding node
@@ -57,7 +56,7 @@ class ShortestPathFinder:
 
         for unit in units:
 
-            if is_stationary(unit.unit_type):
+            if self.game_state.is_stationary(unit.unit_type):
 
                 self.game_map[unit.x][unit.y].blocked = True
     

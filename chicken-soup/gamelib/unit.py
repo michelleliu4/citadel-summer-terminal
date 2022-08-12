@@ -39,6 +39,7 @@ class GameUnit:
         self.target_edge = target_edge
         self.frames_until_move = 0
         self.path = []
+        self.active = True
 
     def __serialize_type(self):
         from .game_state import STRUCTURE_TYPES, UNIT_TYPE_TO_INDEX, SUPPORT
