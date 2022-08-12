@@ -5,7 +5,7 @@ import warnings
 from sys import maxsize
 import json
 import copy
-from shirmp.gamelib import game_state
+from gamelib import game_state
 from simulator import Simulator
 import time
 
@@ -28,7 +28,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         seed = random.randrange(maxsize)
         random.seed(seed)
         gamelib.debug_write('Random seed: {}'.format(seed))
-        midgame = 0
+        self.midgame = 0
 
     def on_game_start(self, config):
         """ 
@@ -140,10 +140,10 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_remove(wall_locations)
     def build_early_defences(self, game_state):
         wall_locations = [[3, 11], [5, 11], [22, 11], [24, 11], [4, 10], [6, 10], [21, 10], [23, 10], [6, 9], [21, 9], [7, 8], [20, 8], [7, 7], [20, 7]]
-        scout_locations = [[3, 10], [24, 10], [6, 8], [21, 8]]
+        demolisher_locations = [[3, 10], [24, 10], [6, 7], [21, 7]]
         wall_upgrades = [[5, 11], [22, 11]]
         game_state.attempt_spawn(WALL, wall_locations)
-        game_state.attempt_spawn(SCOUT, scout_locations)    
+        game_state.attempt_spawn(INTERCEPTOR, demolisher_locations)    
         game_state.attempt_upgrade(wall_upgrades)
 
     def build_defences(self, game_state):
