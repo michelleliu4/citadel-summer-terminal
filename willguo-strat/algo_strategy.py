@@ -101,12 +101,12 @@ class AlgoStrategy(gamelib.AlgoCore):
             self.offensive_strategy(game_state)
             return
         # If the turn is less than 5, stall with interceptors and wait to see enemy's base
-        if game_state.turn_number < 9:
+        if game_state.get_resource(0) < 72:
             #demo_spawn_location_options = [[7, 6], [20, 6]]
             #best_location = self.least_damage_spawn_location(game_state, demo_spawn_location_options)
             self.build_early_defences(game_state)
             # game_state.attempt_spawn(DEMOLISHER, [15, 1], 2)
-        elif game_state.get_resource(0) > 72:
+        else:
             self.midgame = 1
             self.sell_early(game_state)
             self.build_all(game_state)
@@ -121,8 +121,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         wall_upgrades = [[3,13], [21,10], [20,9], [23,12], [23,13]]
         game_state.attempt_spawn(WALL, wall_locations)
         game_state.attempt_spawn(TURRET, turret_locations)
-        game_state.attempt_spawn(SUPPORT, support_locations)
         game_state.attempt_upgrade(wall_upgrades)
+        game_state.attempt_spawn(SUPPORT, support_locations)
+        
         game_state.attempt_upgrade(support_locations)
         game_state.attempt_upgrade(turret_locations)
         
