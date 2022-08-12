@@ -46,6 +46,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         # This is a good place to do initial setup
         self.scored_on_locations = []
         self.scored_last = 0
+        self.pred_last = 0
+        self.enemy_spawned_mu = False
+        self.enemy_built_more = False
 
     def on_turn(self, turn_state):
         """
@@ -56,13 +59,24 @@ class AlgoStrategy(gamelib.AlgoCore):
         game engine.
         """
         game_state = gamelib.GameState(self.config, turn_state)
-        if game_state.turn_number != 0: gamelib.debug_write(f"last round actual score: {self.scored_last}")
+        if game_state.turn_number != 0: 
+            e = " --- With enemy mobile units" if self.enemy_spawned_mu else ""
+            e2 = " --- With additional enemy stationary units" if self.enemy_built_more else ""
+            gamelib.debug_write(f"predicted:actual --- {self.pred_last}:{self.scored_last}{e}{e2}")
+        self.enemy_spawned_mu = False
+        self.enemy_built_more = False
         gamelib.debug_write('Performing turn {} of your custom algo strategy'.format(game_state.turn_number))
         game_state.suppress_warnings(True)  #Comment or remove this line to enable warnings.
         self.starter_strategy(game_state)
         sim_state = copy.deepcopy(game_state)
         s = Simulator(sim_state)
-        gamelib.debug_write(s.simulate())
+        r = s.simulate()
+        gamelib.debug_write(r['times'])
+        total = 0
+        for k in r['times']:
+            total += r['times'][k]
+        gamelib.debug_write(f"{total=}")
+        self.pred_last = r['score']
         game_state.submit_turn()
         assert game_state.turn_number < 20
     """
@@ -245,15 +259,30 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         self.scored_last = 0
 
+        mu = [3, 4, 5] # integer unit types for mobile units
+        su = [0, 1, 2]
+
+        for spawn in events["spawn"]:
+
+            #gamelib.debug_write(f"{spawn}")
+
+            if spawn[1] in mu and spawn[3] == 2:
+
+                self.enemy_spawned_mu = True
+            
+            if spawn[1] in su and spawn[3] == 2:
+
+                self.enemy_built_more = True
+
         for breach in breaches:
             location = breach[0]
             unit_owner_self = True if breach[4] == 1 else False
             # When parsing the frame data directly, 
             # 1 is integer for yourself, 2 is opponent (StarterKit code uses 0, 1 as player_index instead)
             if not unit_owner_self:
-                gamelib.debug_write("Got scored on at: {}".format(location))
+                #gamelib.debug_write("Got scored on at: {}".format(location))
                 self.scored_on_locations.append(location)
-                gamelib.debug_write("All locations: {}".format(self.scored_on_locations))
+                #gamelib.debug_write("All locations: {}".format(self.scored_on_locations))
             
             else:
                 self.scored_last += 1

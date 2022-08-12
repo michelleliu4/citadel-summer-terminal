@@ -73,8 +73,6 @@ class ShortestPathFinder:
             Note that this path can change if a tower is destroyed during pathing, or if you or your enemy places structures.
 
         """
-        if game_state.contains_stationary_unit(start_point):
-            return
 
         #Initialize map 
         self.initialize_map(game_state)

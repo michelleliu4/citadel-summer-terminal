@@ -556,7 +556,8 @@ class GameState:
         target_x_distance = 0
 
         for unit in targets:
-            if unit.player_index == attacking_unit.player_index or (attacking_unit.damage_f == 0 and is_stationary(unit.unit_type)) or (attacking_unit.damage_i == 0 and not(is_stationary(unit.unit_type))):
+            location = [unit.x, unit.y]
+            if unit.player_index == attacking_unit.player_index or (attacking_unit.damage_f == 0 and is_stationary(unit.unit_type)) or (attacking_unit.damage_i == 0 and not(is_stationary(unit.unit_type))) or unit.health == 0:
                 continue
 
             new_target = False
