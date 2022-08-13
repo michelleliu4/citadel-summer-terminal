@@ -6,6 +6,7 @@ from sys import maxsize
 import json
 import copy
 from gamelib import game_state
+from simulator import Simulator
 import simulator
 import time
 
@@ -50,6 +51,12 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.mem = {'repair': []}
         self.repair_mode = False
 
+        self.mode = 0
+        self.reactive_turrets = []
+        self.took_damage_last_turn = False
+        
+        self.enemy_previous_mp = 0
+
     def on_turn(self, turn_state):
         """
         This function is called every turn with the game state wrapper as
@@ -65,6 +72,8 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.starter_strategy(game_state)
 
         game_state.submit_turn()
+        self.enemy_previous_mp = game_state.get_resources(1)
+        self.took_damage_last_turn = False
 
 
     """
@@ -90,39 +99,40 @@ class AlgoStrategy(gamelib.AlgoCore):
             pass the enemy defenses.
         """
 
-        # First, place basic defenses
-        # if game_state.turn_number == 0:
-        #     self.build_early_defences(game_state)
-        # else:
-        # self.build_defences(game_state)
-        # Now build reactive defenses based on where the enemy scored
-        #self.build_reactive_defense(game_state)
-        
         if self.mode == 0:
             # Early game
             
-            self.build_early_defences(game_state)
-            
+            """
+            ideas:
+            -if we can do dmg, send scouts + keep interceptors
+            -if we take dmg last turn: change up where interceptors spawn
+            -otherwise: just do interceptors
+            """
+            # Check if resources done
             if game_state.get_resource(0) > 66.5:
                 self.mode = 1
                 self.sell_early(game_state)
-                
-                return
-            
-            # Naive: If we get NUKED by scouts build turret
-            self.build_reactive_defense(game_state)
+                self.early_interceptors(game_state)
+            else:
+                # Build walls and turrets
+                self.build_early_defences(game_state)
+
+                if self.took_damage_last_turn:
+                    self.build_reactive_defense(game_state)
+                    self.early_interceptors(game_state)
+                else:
+                    self.early_interceptors(game_state)
                 
         elif self.mode == 1:
             # Midgame
 
             self.build_all(game_state)
-                
-            self.offensive_strategy(game_state)
-            return
+            self.offensive_strategy_m1(game_state)
+            
         elif self.mode == 2:
             # Left corner suicide bombing
-
-            return
+            pass
+        
         # If the turn is less than 5, stall with interceptors and wait to see enemy's base
         
             #demo_spawn_location_options = [[7, 6], [20, 6]]
@@ -137,17 +147,80 @@ class AlgoStrategy(gamelib.AlgoCore):
             # Now let's analyze the enemy base to see where their defenses are concentrated.
             # If they have many units in the front we can build a line for our demolishers to attack them at long range.
     
-    def repair(self, game_state):
 
-        deaths = self.mem['repair']
-        unrepaired = []
+    # --------------------------------------------------------
+    # EARLY ATTACKS AND DEFENSES
+    # --------------------------------------------------------
+    def early_scout_attacks(self, game_state):
+        """
+        Simulates several scout spawns in early game to see if can
+        score some free damage.
+        """
 
-        for death in deaths:
+        # TODO: if our scouts do full damage, send all scouts otherwise only send 1??
+        potential_spawns = [[13, 0], [14, 0]]
+        for spawn in potential_spawns:
+            print("e")
+        
+        def scout_probe(loc):
 
-            s = game_state.attempt_spawn(death[1], death[0])
-            if not s:
-                unrepaired.append(death)
+            def out(state, info):
+                
+                state.attempt_spawn(loc, SCOUT, 2)
+
+                return state
+
+            return out
+        
+        def opt(strats, results):
+
+            m = 0
+            i = 0
+
+            for j, r in enumerate(results):
+
+                if r['friendly_score'] > m:
+                    m = r['friendly_score']
+                    i = j
             
+            if m == 0:
+                return None
+
+            return strats[i]
+
+        strats = [scout_probe(loc) for loc in potential_spawns]
+
+        best = simulator.simulate_multiple(game_state, strats, {}, opt)
+
+        if not best:
+
+            # don't attack... neither simulation rendered damage
+            return
+
+        best(game_state, {})
+
+    def sell_early(self, game_state):
+        """Sell early game walls and reactive turrets"""
+        wall_locations = [[3, 11], [5, 11], [22, 11], [24, 11], [4, 10], [6, 10], [23, 10], [6, 9], [21, 9], [7, 8], [20, 8], [7, 7], [20, 7]]
+        game_state.attempt_remove(wall_locations)
+        if self.reactive_turrets != []:
+            game_state.attempt_remove(self.reactive_turrets)
+        
+    def build_early_defences(self, game_state):
+        wall_locations = [[3, 11], [5, 11], [22, 11], [24, 11], [4, 11], [6, 10], [21, 10], [23, 11], [6, 9], [21, 9], [7, 8], [20, 8], [7, 7], [20, 7]]
+        wall_upgrades = [[5, 11], [22, 11]]
+        game_state.attempt_spawn(WALL, wall_locations)
+        game_state.attempt_upgrade(wall_upgrades)
+            
+    def early_interceptors(self, game_state):
+        demolisher_locations = [[3, 10], [24, 10], [6, 7], [21, 7]]
+        game_state.attempt_spawn(INTERCEPTOR, demolisher_locations)
+
+
+        # TODO: have instance var that changes based on interceptor new strats will
+    # --------------------------------------------------------
+    # MIDGAME ATTACKS AND DEFENSES
+    # --------------------------------------------------------
     def build_all(self, game_state):
         wall_locations = [[0, 13], [1, 13], [3, 13], [23, 13], [25, 13], [26, 13], [27, 13], [1, 12], [23, 12],
                           [2, 11], [3, 10], [21, 10], [4, 9], [20, 9], [5, 8], [19, 8], [6, 7], [18, 7], [7, 6],
@@ -163,7 +236,150 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_upgrade(support_locations)
         game_state.attempt_upgrade(turret_locations)
         
-    def offensive_strategy(self, game_state):
+    def offensive_strategy_m1(self, game_state):
+
+        """
+        Simulates several scout spawns in early game to see if can
+        score some free damage.
+        """
+
+        # TODO: if our scouts do full damage, send all scouts otherwise only send 1??
+
+        r = random.randint(0, 4)
+        
+        def scout_follows_demo_l(state, info):
+
+            if state.number_affordable(SCOUT) > 16 + r:
+
+                state.attempt_spawn(DEMOLISHER, [13, 0], 3)
+                state.attempt_spawn(SCOUT, [9, 4], 100)
+
+            return state
+
+        def scout_on_demo_l(state, info):
+
+            if state.number_affordable(SCOUT) > 16 + r:
+
+                state.attempt_spawn(DEMOLISHER, [13, 0], 3)
+                state.attempt_spawn(SCOUT, [10, 3], 100)
+
+            return state
+
+        def demo_only_l(state, info):
+
+            if state.number_affordable(SCOUT) > 18 + r:
+
+                state.attempt_spawn(DEMOLISHER, [13, 0], 100)
+
+            return state
+
+        def scout_only_l(state, info):
+
+            if state.number_affordable(SCOUT) > 15 - r:
+
+                state.attempt_spawn(SCOUT, [13, 0], 100)
+
+            return state
+
+        def demo_follows_interceptor_l(state, info):
+
+            if state.number_affordable(SCOUT) > 18 + r:
+                
+                state.attempt_spawn(INTERCEPTOR, [23, 9], 3)
+                state.attempt_spawn(DEMOLISHER, [9, 4], 100)
+                
+            return state
+
+        def demo_scout_interceptor_l(state, info):
+
+            if state.number_affordable(SCOUT) > 18 + r:
+
+                state.attempt_spawn(INTERCEPTOR, [23, 9], 3)
+                state.attempt_spawn(DEMOLISHER, [13, 0], 3)
+                state.attempt_spawn(SCOUT, [9, 4], 100)
+
+            return state
+
+        def scout_follows_demo_r(state, info):
+
+            if state.number_affordable(SCOUT) > 16 + r:
+
+                state.attempt_spawn(DEMOLISHER, [23, 9], 3)
+                state.attempt_spawn(DEMOLISHER, [22, 8], 100)
+
+            return state
+
+        def scout_on_demo_r(state, info):
+
+            if state.number_affordable(SCOUT) > 16 + r:
+
+                state.attempt_spawn(DEMOLISHER, [23, 9], 4)
+                state.attempt_spawn(DEMOLISHER, [24, 10], 100)
+
+            return state
+
+        def demo_only_r(state, info):
+
+            if state.number_affordable(SCOUT) > 18 + r:
+
+                state.attempt_spawn(DEMOLISHER, [23, 9], 100)
+
+            return state
+
+        def scout_only_r(state, info):
+
+            if state.number_affordable(SCOUT) > 15 - r:
+
+                state.attempt_spawn(DEMOLISHER, [23, 9], 100)
+
+            return state
+
+        strats = [scout_follows_demo_l,
+                  scout_on_demo_l,
+                  demo_only_l,
+                  scout_only_l,
+                  demo_follows_interceptor_l,
+                  demo_scout_interceptor_l,
+                  scout_follows_demo_r,
+                  scout_on_demo_r,
+                  demo_only_r,
+                  scout_only_r]
+        
+        def opt(strats, results):
+
+            m = 0
+            i = 0
+
+            for j, r in enumerate(results):
+
+                if r['friendly_score'] > m:
+                    m = r['friendly_score']
+                    i = j
+            
+            if m > 5:
+
+                return strats[i]
+            
+            if results[i]['friendly_damage_done'] > 400:
+
+                return strats[i]
+
+            return None
+
+            
+
+        best = simulator.simulate_multiple(game_state, strats, {}, opt)
+
+        if not best:
+
+            # don't attack... no simulation rendered damage
+            return
+
+        best(game_state, {})
+
+        return
+
+        # THIS STUFF IS THE OLD ATTACK LOGIC
         #if past turn did a lot of damag/scored, keep sending scouts for pressure?
         if game_state.get_resource(1) > 12:
             game_state.attempt_spawn(DEMOLISHER, [23, 9], 4)
@@ -172,16 +388,6 @@ class AlgoStrategy(gamelib.AlgoCore):
             if game_state.get_resource(1, 1) > 15:
                 game_state.attempt_spawn(INTERCEPTOR, [21, 8], 1)
                 game_state.attempt_spawn(INTERCEPTOR, [19, 7], 1)
-    def sell_early(self, game_state):
-        wall_locations = [[3, 11], [5, 11], [22, 11], [24, 11], [4, 10], [6, 10], [23, 10], [6, 9], [21, 9], [7, 8], [20, 8], [7, 7], [20, 7]]
-        game_state.attempt_remove(wall_locations)
-    def build_early_defences(self, game_state):
-        wall_locations = [[3, 11], [5, 11], [22, 11], [24, 11], [4, 11], [6, 10], [21, 10], [23, 11], [6, 9], [21, 9], [7, 8], [20, 8], [7, 7], [20, 7]]
-        demolisher_locations = [[3, 10], [24, 10], [6, 7], [21, 7]]
-        wall_upgrades = [[5, 11], [22, 11]]
-        game_state.attempt_spawn(WALL, wall_locations)
-        game_state.attempt_spawn(INTERCEPTOR, demolisher_locations)    
-        game_state.attempt_upgrade(wall_upgrades)
 
     def build_defences(self, game_state):
         """
@@ -195,7 +401,7 @@ class AlgoStrategy(gamelib.AlgoCore):
                           [26, 13], [27, 13], [6, 12], [6, 11], [8, 11], [25, 11], [6, 10],
                           [8, 10], [9, 10], [24, 10], [8, 9], [23, 9], [9, 8], [22, 8], [9, 7],
                           [21, 7], [10, 6], [20, 6], [10, 5], [11, 5], [12, 5], [13, 5], [14, 5],
-                          [15, 5], [16, 5], [17, 5], [18, 5], [19, 5]]
+                          [15, 5], [16, 5], [17, 5], [18, 5], [19, 5], [15, 4]]
         #TODO Left side of funnel is super vunerable
         turret_locations = [[3, 12], [5, 12], [26, 12], [5, 11], [1, 12], [5, 10], [9, 9], [8, 8]]
         support_locations = [[4, 12], [4, 11], [8, 7], [9, 6], [11, 4], [12, 3]]
@@ -213,30 +419,10 @@ class AlgoStrategy(gamelib.AlgoCore):
             game_state.attempt_upgrade(turret_locations)
             game_state.attempt_upgrade(support_locations)
 
-    def build_early_reactive_defense(self, game_state):
-        """
-        This function builds reactive defenses in the early game based on where
-        the enemy scored on us from.
-        We can track where the opponent scored by looking at events in action frames 
-        as shown in the on_action_frame function
-        """
-        for location in self.scored_on_locations:
-            # Build turret one space above so that it doesn't block our own edge spawn locations
-            build_location = [location[0], location[1]]
-            game_state.attempt_spawn(TURRET, build_location)
 
-
-    def build_reactive_defense(self, game_state):
-        """
-        This function builds reactive defenses based on where the enemy scored on us from.
-        We can track where the opponent scored by looking at events in action frames 
-        as shown in the on_action_frame function
-        """
-        for location in self.scored_on_locations:
-            # Build turret one space above so that it doesn't block our own edge spawn locations
-            build_location = [location[0], location[1]+1]
-            game_state.attempt_spawn(TURRET, build_location)
-
+    # --------------------------------------------------------
+    # STRATS
+    # --------------------------------------------------------
     def stall_with_interceptors(self, game_state):
         """
         Send out interceptors at random locations to defend our base from enemy moving units.
@@ -282,6 +468,31 @@ class AlgoStrategy(gamelib.AlgoCore):
         # By asking attempt_spawn to spawn 1000 units, it will essentially spawn as many as we have resources for
         game_state.attempt_spawn(DEMOLISHER, [24, 10], 1000)
 
+
+    # --------------------------------------------------------
+    # UTILS
+    # --------------------------------------------------------
+    def build_reactive_defense(self, game_state):
+        """
+        This function builds reactive defenses based on where the enemy scored on us from.
+        We can track where the opponent scored by looking at events in action frames 
+        as shown in the on_action_frame function
+        """
+        blacklist = [[3, 10], [4, 10], [5, 10], [22, 10], [23, 10], [24, 10], [4, 9], [5, 9], [22, 9], [23, 9], [5, 8], [6, 8], [21, 8], [22, 8], [6, 7], [21, 7]]
+        
+        
+        for location in self.scored_on_locations:
+            # Check to make sure not building turrets next to each other (scuffed code)
+            if [location[0]+1, location[1]-1] not in self.scored_on_locations and [location[0]-1, location[1]-1] not in self.scored_on_locations:
+                
+                # Build turret one space above so that it doesn't block our own edge spawn locations
+                build_location = [location[0], location[1]+1]
+
+                # Avoid turrest in blacklist, then attempt spawn and add to reactive turrets
+                if build_location not in blacklist:
+                    game_state.attempt_spawn(TURRET, build_location)
+                    self.reactive_turrets.append(build_location)
+
     def least_damage_spawn_location(self, game_state, location_options):
         """
         This function will help us guess which location is the safest to spawn moving units from.
@@ -317,6 +528,17 @@ class AlgoStrategy(gamelib.AlgoCore):
                 filtered.append(location)
         return filtered
 
+    def repair(self, game_state):
+
+        deaths = self.mem['repair']
+        unrepaired = []
+
+        for death in deaths:
+
+            s = game_state.attempt_spawn(death[1], death[0])
+            if not s:
+                unrepaired.append(death)
+
     def on_action_frame(self, turn_string):
         """
         This is the action frame of the game. This function could be called 
@@ -329,10 +551,13 @@ class AlgoStrategy(gamelib.AlgoCore):
         events = state["events"]
         breaches = events["breach"]
 
-        # for death in events["death"]:
-        #     # if something of ours died, and it's either a wall or turrent (and we didn't remove it)
-        #     if (death[1] in [0, 2]) and death[3] == 1 and not death[4]:
-        #         self.mem["repair"].append([death[0], WALL if death[1] == 0 else TURRET])   
+        for spawn in events['spawn']:
+
+            if spawn[3] == 2:
+                # TODO:
+                a=1
+                
+                
 
         for breach in breaches:
             location = breach[0]
@@ -342,6 +567,7 @@ class AlgoStrategy(gamelib.AlgoCore):
             if not unit_owner_self:
                 gamelib.debug_write("Got scored on at: {}".format(location))
                 self.scored_on_locations.append(location)
+                self.took_damage_last_turn = True
                 gamelib.debug_write("All locations: {}".format(self.scored_on_locations))
 
 
