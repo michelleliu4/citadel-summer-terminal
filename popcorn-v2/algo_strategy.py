@@ -109,7 +109,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.build_initial_defences(game_state)
         is_left = True
         if game_state.get_resource(1, 1) > 12:
-            self.self_destruct(is_left)
+            self.self_destruct(is_left, game_state)
         game_state.attempt_spawn(WALL, self.additional_walls)
         game_state.attempt_upgrade(self.key_wall_upgrades)
         game_state.attempt_spawn(TURRET, self.additional_turrets)
@@ -118,7 +118,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_spawn(SUPPORT, self.support_locations)
 
         
-    def self_destruct(self, is_left):
+    def self_destruct(self, is_left, game_state):
         if is_left:
             game_state.attempt_spawn(WALL, self.self_destruct_walls_left)
             game_state.attempt_remove(self.self_destruct_walls_left)
