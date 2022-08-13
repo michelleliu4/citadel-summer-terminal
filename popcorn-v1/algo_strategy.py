@@ -63,6 +63,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.self_destruct_walls_left = [[3, 11]]
         self.self_destruct_walls_right = [[24, 11]]
         self.is_far_away = False
+        self.is_left = True
         #positive means left neg means right 0 is no info
         self.enemy_spawn_side = 0
 
