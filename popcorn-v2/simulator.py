@@ -396,6 +396,7 @@ class Simulator():
             if frame_count > 500:
 
                 sim_complete = False
+                gamelib.debug_write(f"sim incomplete")
                 break
 
             #gamelib.debug_write(f"simulating frame {frame_count}")

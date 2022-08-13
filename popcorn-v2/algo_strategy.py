@@ -8,6 +8,7 @@ import json
 import copy
 from gamelib import game_state
 import time
+import simulator
 
 """
 Most of the algo code you write will be in this file unless you create new
@@ -102,8 +103,178 @@ class AlgoStrategy(gamelib.AlgoCore):
             self.build_initial_defences(game_state)
         else:
             self.build_all(game_state)
+
+        # after self_destruct defense...
+        self.attack(game_state)
+
+        # remove funnel blocks:
+        game_state.attempt_remove([24, 12])
+        game_state.attempt_remove([3, 12])
+    
+    def attack(self, game_state):
+
+        r = random.randint(0, 4)
+
+        def left_funnel(strat):
+
+            def o(state, info):
+
+                state.attempt_spawn(WALL, [24, 12])
+                return strat(game_state, info)
+
+            return o
+
+        def right_funnel(strat):
+
+            def o(state, info):
+
+                state.attempt_spawn(WALL, [3, 12])
+                return strat(game_state, info)
+
+            return o
         
+        def scout_follows_demo_l(state, info):
+
+            if state.number_affordable(SCOUT) > 16 + r:
+
+                state.attempt_spawn(DEMOLISHER, [7, 6], 3)
+                state.attempt_spawn(SCOUT, [6, 7], 100)
+
+            return state
+
+        def scout_on_demo_l(state, info):
+
+            if state.number_affordable(SCOUT) > 16 + r:
+
+                state.attempt_spawn(DEMOLISHER, [7, 6], 3)
+                state.attempt_spawn(SCOUT, [7, 6], 100)
+
+            return state
+
+        def demo_only_l(state, info):
+
+            if state.number_affordable(SCOUT) > 18 + r:
+
+                state.attempt_spawn(DEMOLISHER, [7, 6], 100)
+
+            return state
+
+        def scout_only_l(state, info):
+
+            if state.number_affordable(SCOUT) > 15 - r:
+
+                state.attempt_spawn(SCOUT, [7, 6], 100)
+
+            return state
+
+        def demo_follows_interceptor_l(state, info):
+
+            if state.number_affordable(SCOUT) > 18 + r:
+                
+                state.attempt_spawn(INTERCEPTOR, [24, 10], 3)
+                state.attempt_spawn(DEMOLISHER, [7, 6], 100)
+                
+            return state
+
+        def scout_follows_demo_r(state, info):
+
+            if state.number_affordable(SCOUT) > 16 + r:
+
+                state.attempt_spawn(DEMOLISHER, [20, 6], 3)
+                state.attempt_spawn(SCOUT, [21, 7], 100)
+
+            return state
+
+        def scout_on_demo_r(state, info):
+
+            if state.number_affordable(SCOUT) > 16 + r:
+
+                state.attempt_spawn(DEMOLISHER, [20, 6], 4)
+                state.attempt_spawn(SCOUT, [20, 6], 100)
+
+            return state
+
+        def demo_only_r(state, info):
+
+            if state.number_affordable(SCOUT) > 18 + r:
+
+                state.attempt_spawn(DEMOLISHER, [20, 6], 100)
+
+            return state
+
+        def scout_only_r(state, info):
+
+            if state.number_affordable(SCOUT) > 15 - r:
+
+                state.attempt_spawn(DEMOLISHER, [20, 6], 100)
+
+            return state
+
+        def demo_follows_interceptor_r(state, info):
+
+            if state.number_affordable(SCOUT) > 18 + r:
+                
+                state.attempt_spawn(INTERCEPTOR, [3, 10], 3)
+                state.attempt_spawn(DEMOLISHER, [20, 6], 100)
+                
+            return state
+
+        def default(state, info):
+
+            state.attempt_spawn(WALL, [3, 12])
+
+        strats = [right_funnel(scout_follows_demo_l),
+                  right_funnel(scout_on_demo_l),
+                  right_funnel(demo_only_l),
+                  right_funnel(scout_only_l),
+                  right_funnel(demo_follows_interceptor_l),
+                  left_funnel(scout_follows_demo_r),
+                  left_funnel(scout_on_demo_r),
+                  left_funnel(demo_only_r),
+                  left_funnel(scout_only_r),
+                  left_funnel(demo_follows_interceptor_r)]
         
+        def opt(strats, results):
+
+            m = 0
+            i = 0
+
+            for j, r in enumerate(results):
+
+                if r['friendly_score'] > m and r['complete']:
+                    m = r['friendly_score']
+                    i = j
+            
+            if m > 8:
+
+                return strats[i]
+
+            m = 0
+            i = 0
+
+            for j, r in enumerate(results):
+
+                if r['friendly_damage_done'] > m and r['complete']:
+                    m = r['friendly_damage_done']
+                    i = j
+            
+            if m > 1000:
+
+                return strats[i]
+
+            return None
+
+        best = simulator.simulate_multiple(game_state, strats, {}, opt)
+
+        if not best:
+
+            default(game_state, {})
+            # don't attack... no simulation rendered damage
+            return
+
+        best(game_state, {})
+
+        return
             
     def build_all(self, game_state):
         self.build_initial_defences(game_state)
@@ -115,7 +286,8 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_spawn(TURRET, self.additional_turrets)
         game_state.attempt_upgrade(self.initial_turret_locations)
         game_state.attempt_upgrade(self.additional_turrets)
-        game_state.attempt_spawn(SUPPORT, self.support_locations)
+        if game_state.get_resource(0) > 8:
+            game_state.attempt_spawn(SUPPORT, self.support_locations)
 
         
     def self_destruct(self, is_left, game_state):
