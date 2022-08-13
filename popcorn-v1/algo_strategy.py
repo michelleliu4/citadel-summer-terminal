@@ -167,7 +167,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         # Let's record at what position we get scored on
         state = json.loads(turn_string)
         events = state["events"]
-        spawns = state["spawn"]
+        spawns = events["spawn"]
         breaches = events["breach"]
         self_destructs = events["selfDestruct"]
         curr_frame = state["turnInfo"][2]
