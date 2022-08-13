@@ -2,26 +2,12 @@ import gamelib, copy, time
 from gamelib.game_map import GameMap
 from gamelib.game_state import is_stationary
 from gamelib.util import time_this
+import math
+import time
 
-def targets(units):
+def euc_dist(a, b):
 
-    targets = []
-
-    for unit in units:
-
-        if (unit.target_edge not in targets) and not is_stationary(unit.unit_type):
-
-            targets.append(unit.target_edge)
-
-    return targets
-
-def conditional_append(l, e):
-
-    if l == []:
-        l += [e]
-        return
-    
-    l.append(e)
+    return math.sqrt(((a.x - b.x) ** 2) + (a.y - b.y) ** 2)
 
 def calculate_shield_bonus(support):
 
@@ -33,14 +19,50 @@ def calculate_shield_bonus(support):
 
     return y * support.shieldBonusPerY
 
+def simulate_multiple(current_state, strategies, info, opt):
+    # here, strategies are functions that modify the current state to produce simulatable attacks.
+    # info should be a datastructure expected by the strategy functions, perhaps communicating relevant past patterns and such
+    # opt is the optimizer to be used to analyze the strategies and their results - it can return anything
+
+    results = []
+
+    s = None
+
+    t1 = time.perf_counter()
+
+    for strategy in strategies:
+
+        sim_state = strategy(copy.deepcopy(current_state), info)
+
+        if not s:
+            s = Simulator(sim_state)
+        else:
+            s.reset(sim_state)
+
+        results.append(s.simulate())
+
+        # if we've spent more than 4 seconds simulating, don't attempt to simulate any more
+        if time.perf_counter() - t1 > 4:
+
+            break
+    
+    return opt(strategies, results)
+
+def place_units(state, units):
+
+    t = state.game_map[unit.x][unit.y] + units
+    state.game_map[unit.x][unit.y] = t
+
+def remove_units(state, location):
+
+    state.game_map[location] = []
+
+
 class Simulator():
 
     def __init__(self, game_state):
 
         self.game_state = game_state
-        # game state _deploy/build_stack can be referenced for deployment order of moving units
-        # if more precision is necessary, unit class can have attribute tracking deploy/build number
-        # allowing for units to be sorted accordingly at the beginning of a simulation by age
 
         self.edges = game_state.game_map.get_edges()
 
@@ -61,258 +83,300 @@ class Simulator():
         INTERCEPTOR = self.game_state.config["unitInformation"][5]["shorthand"]
         UNIT_TYPE_TO_INDEX[INTERCEPTOR] = 5
 
-        self.it = GameMap(self.game_state.config)
+        self.can_attack = [TURRET, SCOUT, DEMOLISHER, INTERCEPTOR]
+
+        self.reset(game_state)
+
+    def reset(self, game_state):
+
+        self.game_state = game_state
+
         self.removal_needed = False
         self.mobile_units_remain = True
 
-    def pathfind_all(self):
+        self.units = []
 
-        for cell in self.it: # would like to avoid this deepcopy - not sure why it's necessary
+        for cell in self.game_state.game_map:
 
-            #gamelib.debug_write(f"{cell}")
+            self.units += self.game_state.game_map[cell]
 
-            if self.game_state.game_map[cell] == []:
+        self.enemy_health_damage = 0
+        self.friendly_health_damage = 0
+
+        self.enemy_units_destroyed = {WALL: 0, TURRET: 0, SUPPORT: 0, SCOUT: 0, DEMOLISHER: 0, INTERCEPTOR: 0}
+        self.friendly_units_destroyed = {WALL: 0, TURRET: 0, SUPPORT: 0, SCOUT: 0, DEMOLISHER: 0, INTERCEPTOR: 0}
+
+        self.enemy_damage_done = 0
+        self.friendly_damage_done = 0
+
+    def units_in_range(self, unit, units, r, f=lambda x: True):
+        # this probably doesn't have to be a class method since self isn't used at all but also who cares
+
+        o = []
+
+        for target in units:
+
+            if euc_dist(unit, target) > r:
+
+                continue
+
+            if target == unit:
+
+                continue
+
+            if not f(target):
 
                 continue
             
-            #gamelib.debug_write(f"units at {cell} (pathfind_all)")
+            o.append(target)
 
-            tpd = [None, None, None, None]
+        return o
 
-            for target in targets(self.game_state.game_map[cell]):
+    def pathfind_all(self):
+        
+        # format of key is "{x},{y},{target_edge}" - this saves time for stacked units with the same target
+        cache = {}
 
-                tpd[target] = self.pathfinder.navigate_multiple_endpoints(cell, self.edges[target], self.game_state)
-                #gamelib.debug_write(f"pathfinding at {cell} for edge {target}")
+        self.mobile_units_remain = False
 
-            for unit in self.game_state.game_map[cell]:
+        for unit in self.units:
 
-                if is_stationary(unit.unit_type):
-
-                    break
-
-                unit.path = [x for x in tpd[unit.target_edge]] # do a deepcopy here to ensure that units don't reference the same 
-                # path by accident (then popping becomes catastrophic)
-                #gamelib.debug_write(f"unit {unit} assigned path {unit.path}")
-
-    def move_all(self):
-
-        for cell in self.it:
-
-            if self.game_state.game_map[cell] == []:
+            if is_stationary(unit.unit_type) or not unit.active:
 
                 continue
 
-            remaining = []
+            k = f"{unit.x},{unit.y},{unit.target_edge}"
 
-            for i in range(len(self.game_state.game_map[cell])):
+            self.mobile_units_remain = True
 
-                unit = self.game_state.game_map[cell][i]
+            if k in cache:
 
-                if is_stationary(unit.unit_type):
+                unit.path = cache[k]
+            
+            else:
 
-                    remaining.append(unit)
-                    break
+                #gamelib.debug_write(f"pathfinding for edge {unit.target_edge} at [{unit.x},{unit.y}]")
 
-                #gamelib.debug_write(f"non-stationary unit at {cell}")
-                self.mobile_units_remain = True
+                path = self.pathfinder.navigate_multiple_endpoints_faster([unit.x, unit.y], self.edges[unit.target_edge], self.game_state, self.units)
+                #gamelib.debug_write(f"{path}")
+                unit.path = path
+                cache[k] = path
 
-                if unit.frames_until_move > 0:
-                    
-                    unit.frames_until_move -= 1
-                    remaining.append(unit)
-                    continue
-                    
-                if unit.path == [] or unit.path == [cell]:
-                    # unit self-destructs
-                    # technically check if unit has moved some number of spaces here, but in the 
-                    # current config it doesn't matter
-                    remaining.append(unit)
-                    self.handle_self_destruct(unit)                  
-                    continue
+        
+    def move_all(self):
+
+        for unit in self.units:
+
+            if is_stationary(unit.unit_type) or not unit.active:
                 
-                # i wish python had do {} while ();
-                # anyways, get the next position to move to
-                next_loc = unit.path[0]
+                continue
+
+            if unit.frames_until_move > 0:
+
+                unit.frames_until_move -= 1
+                continue
+
+            if unit.path == [[unit.x, unit.y]] or unit.path == []:
+
+                if [unit.x, unit.y] in self.edges[unit.target_edge]:
+
+                    if unit.player_index == 0:
+
+                        self.enemy_health_damage += 1
+                        #gamelib.debug_write(f"unit {unit} scores on enemy.")
+                    else:
+                        self.friendly_health_damage += 1
+
+                    unit.active = False
+                    self.removal_needed = True
+                    continue
+
+                # self destruct
+                self.handle_self_destruct(unit)
+                continue
+            
+            if unit.path == None:
+
+                #gamelib.debug_write(f"hmm strange, {unit} has no path")
+                assert False
+
+            # getting next location of unit
+            next_loc = unit.path[0]
+            
+            if next_loc == [[unit.x, unit.y]]:
+
+                next_loc = unit.path[1]
+                unit.path = unit.path[2:]
+            
+            else:
+
                 unit.path = unit.path[1:]
 
-                if next_loc == cell:
+            unit.x, unit.y = next_loc
+            unit.frames_until_move = unit.speed - 1# possibly correct
 
-                    next_loc = unit.path[0]
-                    unit.path = unit.path[1:]
-                
-                #gamelib.debug_write(f"next_loc = {next_loc}")
+            #gamelib.debug_write(f"move_unit at {unit.x},{unit.y}")
 
-                #if not self.game_state.game_map.in_arena_bounds(next_loc):
-
-                #    # player # unit.player_index has scored, might want more stuff here
-                #    gamelib.debug_write(f"player {abs(unit.player_index - 1)} scored on by {unit}")
-                #    # unit gets deleted since we don't move it to a new cell, and it isn't in remaining
-                #    continue
-                
-                unit.x, unit.y = next_loc
-                unit.frames_until_move = unit.speed #unit speed? check this
-                self.append_game_map_list(next_loc, unit)
-                #gamelib.debug_write(f"unit {unit} moved")
-                # gamelib.debug_write(f"proof {self.game_state.game_map[next_loc]}")
-
-            self.game_state.game_map.remove_unit(cell)
-            self.game_state.game_map[cell] = remaining
+            # unit has been moved?
 
     def attack_all(self):
 
-        # now's when specific orders are important, although are they really?
-        # the docs say that units attack even if their health is 0, but will not be targeted
-        # if it's 0, so the order of attack doesn't really change anything right? I guess
-        # it changes exactly which units are attacked by which other units, however the same amount of
-        # damage is done to the enemy in either case, (although since negative health gets corrected to 0,
-        # attacking a low health unit with a high damage unit wastes more, however this is not depended on the
-        # order of spawning....)
-        
-        attacking_units = [TURRET, INTERCEPTOR, SCOUT, DEMOLISHER] # define this
+        cache = {}
 
-        for cell in self.it:
+        for unit in self.units:
 
-            for unit in self.game_state.game_map[cell]:
-
-                if unit.unit_type not in attacking_units:
-                    continue
-
-                target = self.game_state.get_target(unit)
-
-                if target == None:
-                    # no units in range
-                    continue
+            if unit.unit_type not in self.can_attack or not unit.active:
                 
-                self.handle_attack(unit, target)
-        
-        #for cell in self.game_state.game_map:
+                continue
+            
+            #gamelib.debug_write(f"unit {unit} looking for targets")
 
-        #    remaining = []
+            if f"{unit.x},{unit.y},{unit.attackRange}" in cache:
+                # then we can use cached targets
+                targets = cache[f"{unit.x},{unit.y},{unit.attackRange}"]
 
-        #    for unit in self.game_state.game_map[cell]:
+            else:
 
-        #        if unit.health != 0:
-        #            remaining.append(unit)
-                
-        #    self.game_state.game_map[cell] = remaining
+                if is_stationary(unit.unit_type):
+
+                    targets = self.units_in_range(unit, self.units, unit.attackRange, 
+                                                  f=lambda x: x.player_index != unit.player_index and x.active and x.health > 0 and not is_stationary(x.unit_type))
+
+                else:
+                    
+                    targets = self.units_in_range(unit, self.units, unit.attackRange, 
+                                                  f=lambda x: x.player_index != unit.player_index and x.active and x.health > 0)
+                    cache[f"{unit.x},{unit.y},{unit.attackRange}"] = targets
+
+            if targets == []:
+                continue
+
+            #gamelib.debug_write(f"candidate targets: {targets}")
+            
+            target = self.game_state.get_target_from_units(unit, targets)
+
+            if target == None: continue
+
+            #gamelib.debug_write(f"{target} targeted by {unit}")
+
+            self.handle_attack(unit, target)
 
     def support_all(self):
 
-        for cell in self.it:
+        # MAYBE ALLOW SUPPORT UNITS TO KEEP TRACK OF UNITS IT HASN'T YET SUPPORTED - then only check if those units are in range, and remove
+        # them from the list once they're supported. This prevents a lot of unit-list loops and cuts time down.
 
-            if self.game_state.game_map[cell] == [] or len(self.game_state.game_map[cell]) > 1:
-
-                continue
-
-            unit = self.game_state.game_map[cell][0]
+        for unit in self.units:
 
             if unit.unit_type != SUPPORT:
 
                 continue
+            
+            # very nice little filter idea here haha, saves some time
+            targets = self.units_in_range(unit, self.units, unit.shieldRange, 
+                                          f=lambda x: (x.player_index == unit.player_index) and (not is_stationary(x.unit_type)) and (unit not in x.supported_by) and x.active)
 
-            possible_locations = self.game_state.game_map.get_locations_in_range(cell, unit.shieldRange)
+            for target in targets:
 
-            for location in possible_locations:
-
-                if self.game_state.game_map[location] == []:
-
-                    continue
-
-                for target in self.game_state.game_map[location]:
-
-                    if target.player_index != unit.player_index or is_stationary(target) or unit in target.supported_by:
-
-                        continue 
-
-                    target.shield += unit.shieldPerUnit + calculate_shield_bonus(unit)
-                    target.supported_by.append(unit)
-                    #gamelib.debug_write(f"unit {target} receives support from {unit}")
+                target.shield += unit.shieldPerUnit + calculate_shield_bonus(unit)
+                #gamelib.debug_write(f"unit at {unit.x},{unit.y} supported {target}")
+                target.supported_by.append(unit)
+        
+        # rounds down shield which may or may not be accurate
+        for unit in self.units:
+            unit.shield = int(unit.shield) # THIS CAN BE REMOVED FOR POSSIBLY OVER-OPTIMISTIC PREDICTIONS
 
     def handle_self_destruct(self, unit):
-        loc = [unit.x, unit.y]
-        sd_range = 9
 
-        if unit.unit_type in [SCOUT, DEMOLISHER]: # this probably doesn't work, need to use numbers haha
-            sd_range = 1.5
+        r = 1.5
 
-        possible_locations = self.game_state.game_map.get_locations_in_range(loc, sd_range)
+        # this is config-dependent
+        if unit.unit_type == INTERCEPTOR:
+            r = 9
 
-        for location in possible_locations:
+        targets = self.units_in_range(unit, self.units, r, f=lambda x: x.player_index != unit.player_index and x.active)
 
-            if self.game_state.game_map[location] == []:
+        for target in targets:
 
-                continue
+            self.damage_unit(target, unit.health)
 
-            for target in self.game_state.game_map[location]:
-
-                if target.player_index == unit.player_index:
-
-                    continue
-
-                self.damage_unit(target, unit.health)
-
-        #gamelib.debug_write(f"unit {unit} self destructs")
         unit.health = 0
         self.removal_needed = True
+        #gamelib.debug_write(f"{unit} self destructed")
+
 
     def handle_attack(self, attacker, target):
 
-        towers = []
+        if is_stationary(target.unit_type):
 
-        if target.unit_type in towers:
-            damage_unit(target, attacker.damage_f)
-            return
-        
-        self.damage_unit(target, attacker.damage_i)
+            self.damage_unit(target, attacker.damage_f)
+            
+        else: 
 
-        #gamelib.debug_write(f"unit {attacker} damages {target}")
+            self.damage_unit(target, attacker.damage_i)
+
+        #gamelib.debug_write(f"unit {attacker} damaged {target}")
 
     def remove_destroyed(self):
 
-        stationary_destroyed = False
+        self.mobile_units_remain = False
 
-        for cell in self.it:
+        n = []
 
-            remaining = []
+        stationary_units_destroyed = False
 
-            for i in range(len(self.game_state.game_map[cell])):
-                
-                unit = self.game_state.game_map[cell][i]
-                
-                if unit.health != 0:
+        for unit in self.units:
 
-                    remaining.append(unit)
+            if unit.health > 0 and unit.active:
 
-                    continue
+                n.append(unit)
 
-                if is_stationary(unit.unit_type):
+                if not is_stationary(unit.unit_type):
 
-                    stationary_destroyed = True
-                    continue
+                    self.mobile_units_remain = True
+
+                #gamelib.debug_write(f"unit {unit} remains")
+
+                continue
             
-            self.game_state.game_map.remove_unit(cell)
-            self.game_state.game_map[cell] = remaining
+            if is_stationary(unit.unit_type):
 
-        self.removal_needed = False
+                stationary_units_destroyed = True
 
-        return stationary_destroyed
+            if not unit.active: 
+                
+                continue
 
-    def append_game_map_list(self, l, e):
+            if unit.player_index == 0:
 
-        t = self.game_state.game_map[l]
-        conditional_append(t, e)
-        self.game_state.game_map[l] = t
+                self.friendly_units_destroyed[unit.unit_type] += 1
+
+            else:
+
+                self.enemy_units_destroyed[unit.unit_type] += 1
+            #gamelib.debug_write(f"unit {unit} destroyed")
+
+        # this basically forgets the old units
+        self.units = n
+
+        return stationary_units_destroyed
 
     def damage_unit(self, target, amount):
 
         total = target.health + target.shield
         after_attack = max(0, total - amount)
+
+        if target.player_index == 1:
+            self.friendly_damage_done += total - after_attack
+        else:
+            self.enemy_damage_done += total - after_attack
+
         if after_attack < target.max_health:
             target.health = after_attack
             target.shield = 0
-            return
-        target.health = target.max_health
-        target.shield = after_attack - target.max_health
+        else:
+            target.health = target.max_health
+            target.shield = after_attack - target.max_health
 
         if target.health == 0: 
             self.removal_needed = True
@@ -325,11 +389,16 @@ class Simulator():
 
         frame_count = 0
 
+        sim_complete = True
+
         while self.mobile_units_remain:
 
-            self.mobile_units_remain = False
+            if frame_count > 500:
 
-            gamelib.debug_write(f"simulating frame {frame_count}")
+                sim_complete = False
+                break
+
+            #gamelib.debug_write(f"simulating frame {frame_count}")
 
             if stationary_units_destroyed:
                 t1 = time.perf_counter()
@@ -337,6 +406,7 @@ class Simulator():
                 t2 = time.perf_counter()
                 t['path'] += t2 - t1
                 stationary_units_destroyed = False
+            
             t3 = time.perf_counter()
             self.support_all()
             t4 = time.perf_counter()
@@ -354,10 +424,20 @@ class Simulator():
                 stationary_units_destroyed = self.remove_destroyed()
                 t8 = time.perf_counter()
                 t['removal'] += t8 - t7
-            gamelib.debug_write(f"{stationary_units_destroyed=}, {self.mobile_units_remain=}")
+                self.removal_needed = False
+            #gamelib.debug_write(f"{stationary_units_destroyed=}, {self.mobile_units_remain=}")
             frame_count += 1
+        gamelib.debug_write(f"{frame_count} frames simulated")
 
-        return t
+        return {'times': t, 
+                'friendly_score': self.enemy_health_damage,
+                'enemy_score': self.friendly_health_damage, 
+                'complete': sim_complete, 
+                'friendly_units_destroyed': self.friendly_units_destroyed,
+                'enemy_units_destroyed': self.enemy_units_destroyed,
+                'friendly_damage_done': self.friendly_damage_done,
+                'enemy_damage_done': self.enemy_damage_done
+               }
 
 
 

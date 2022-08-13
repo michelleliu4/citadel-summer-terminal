@@ -6,6 +6,7 @@ from sys import maxsize
 import json
 import copy
 from gamelib import game_state
+import simulator
 import time
 
 """
@@ -47,6 +48,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         # This is a good place to do initial setup
         self.scored_on_locations = []
         self.mem = {'repair': []}
+        self.repair_mode = False
 
     def on_turn(self, turn_state):
         """
@@ -87,20 +89,6 @@ class AlgoStrategy(gamelib.AlgoCore):
             If our units are crossing the map (horizontally) for path finding reasons, make sure they spawn such that they target the closest edge to where they
             pass the enemy defenses.
         """
-        """
-        Game Modes:
-
-        0 = early game
-        TODO implement some way to build more defenses/stopo getting demolished early by scouts
-        1 = (current) midgame
-            TODO if 1 not doing damage/bad, switch to 2
-            TODO if we're getting destroyed using 1, what do we switch?
-
-        2 = if our demolisher strat not doing damage, switch to this scout/demolisher combo
-            
-        3 = left corner scout suicide bombing
-        """
-
 
         # First, place basic defenses
         # if game_state.turn_number == 0:
@@ -111,24 +99,29 @@ class AlgoStrategy(gamelib.AlgoCore):
         #self.build_reactive_defense(game_state)
         
         if self.mode == 0:
+            # Early game
             
             self.build_early_defences(game_state)
-
+            
             if game_state.get_resource(0) > 66.5:
-                
-                self.turn_alt = 1 - (self.game_state.turn_number % 2)
                 self.mode = 1
                 self.sell_early(game_state)
                 
+                return
+            
+            # Naive: If we get NUKED by scouts build turret
+            self.build_reactive_defense(game_state)
+                
         elif self.mode == 1:
-            
-            self.repair()
-            
-            if self.game_state.turn_number % 2 == self.turn_alt:
+            # Midgame
 
-                self.build_all(game_state)
+            self.build_all(game_state)
                 
             self.offensive_strategy(game_state)
+            return
+        elif self.mode == 2:
+            # Left corner suicide bombing
+
             return
         # If the turn is less than 5, stall with interceptors and wait to see enemy's base
         
@@ -219,6 +212,19 @@ class AlgoStrategy(gamelib.AlgoCore):
             game_state.attempt_upgrade(wall_upgradable)
             game_state.attempt_upgrade(turret_locations)
             game_state.attempt_upgrade(support_locations)
+
+    def build_early_reactive_defense(self, game_state):
+        """
+        This function builds reactive defenses in the early game based on where
+        the enemy scored on us from.
+        We can track where the opponent scored by looking at events in action frames 
+        as shown in the on_action_frame function
+        """
+        for location in self.scored_on_locations:
+            # Build turret one space above so that it doesn't block our own edge spawn locations
+            build_location = [location[0], location[1]]
+            game_state.attempt_spawn(TURRET, build_location)
+
 
     def build_reactive_defense(self, game_state):
         """
@@ -323,10 +329,10 @@ class AlgoStrategy(gamelib.AlgoCore):
         events = state["events"]
         breaches = events["breach"]
 
-        for death in events["death"]:
-            # if something of ours died, and it's either a wall or turrent (and we didn't remove it)
-            if (death[1] in [0, 2]) and death[3] == 1 and not death[4]:
-                self.mem["repair"].append([death[0], WALL if death[1] == 0 else TURRET])   
+        # for death in events["death"]:
+        #     # if something of ours died, and it's either a wall or turrent (and we didn't remove it)
+        #     if (death[1] in [0, 2]) and death[3] == 1 and not death[4]:
+        #         self.mem["repair"].append([death[0], WALL if death[1] == 0 else TURRET])   
 
         for breach in breaches:
             location = breach[0]
