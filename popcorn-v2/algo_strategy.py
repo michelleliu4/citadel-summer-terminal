@@ -347,8 +347,6 @@ class AlgoStrategy(gamelib.AlgoCore):
             if spawn[1] > 2 and spawn[3] == 2:
                 location = spawn[0]
                 self.enemy_spawn_side = 13.5 - location[0]
-                
-
 
         for self_destruct in self_destructs:
             unit_owner_self = True if self_destruct[5] == 1 else False

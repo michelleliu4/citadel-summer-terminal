@@ -38,7 +38,6 @@ def simulate_multiple(current_state, strategies, info, opt):
             s = Simulator(sim_state)
         else:
             s.reset(sim_state)
-
         results.append(s.simulate())
 
         # if we've spent more than 4 seconds simulating, don't attempt to simulate any more
@@ -396,10 +395,10 @@ class Simulator():
             if frame_count > 500:
 
                 sim_complete = False
-                gamelib.debug_write(f"sim incomplete")
                 break
-
-            #gamelib.debug_write(f"simulating frame {frame_count}")
+            if frame_count % 10 == 0:
+                gamelib.debug_write(f"simulating frame {frame_count}")
+                gamelib.debug_write(f"{stationary_units_destroyed=}, {self.mobile_units_remain=}")
 
             if stationary_units_destroyed:
                 t1 = time.perf_counter()
