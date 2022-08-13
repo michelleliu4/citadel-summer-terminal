@@ -6,6 +6,7 @@ from sys import maxsize
 import json
 import copy
 from simulator import Simulator
+import simulator
 import time
 
 """
@@ -20,6 +21,47 @@ Advanced strategy tips:
   board states. Though, we recommended making a copy of the map to preserve 
   the actual current map state.
 """
+
+def right_edge_attack_s(state, info):
+
+    state.attempt_spawn(DEMOLISHER, [17, 3], 2)
+    state.attempt_spawn(SCOUT, [16, 2], 100)
+
+    return state
+
+def left_edge_attack_s(state, info):
+
+    state.attempt_spawn(DEMOLISHER, [12, 1], 2)
+    state.attempt_spawn(SCOUT, [11, 2], 100)
+
+    return state
+
+def right_edge_attack_d(state, info):
+
+    state.attempt_spawn(DEMOLISHER, [16, 2], 2)
+    state.attempt_spawn(SCOUT, [17, 3], 100)
+
+    return state
+
+def left_edge_attack_d(state, info):
+
+    state.attempt_spawn(DEMOLISHER, [11, 2], 2)
+    state.attempt_spawn(SCOUT, [12, 1], 100)
+
+    return state
+
+def test_opt(strats, results):
+
+    m = 0
+    i = 0
+
+    for j, r in enumerate(results):
+
+        if r['friendly_score'] > m: 
+            i = j
+            m = r['friendly_score']
+    
+    return strats[i]
 
 class AlgoStrategy(gamelib.AlgoCore):
     def __init__(self):
@@ -71,14 +113,18 @@ class AlgoStrategy(gamelib.AlgoCore):
         sim_state = copy.deepcopy(game_state)
         s = Simulator(sim_state)
         r = s.simulate()
+        gamelib.debug_write(f"friendly_units_destroyed {r['friendly_units_destroyed']}")
+        gamelib.debug_write(f"enemy_units_destroyed {r['enemy_units_destroyed']}")
+        gamelib.debug_write(f"friendly_damage_done {r['friendly_damage_done']}")
+        gamelib.debug_write(f"enemy_damage_done {r['enemy_damage_done']}")
         gamelib.debug_write(r['times'])
         total = 0
         for k in r['times']:
             total += r['times'][k]
         gamelib.debug_write(f"{total=}")
-        self.pred_last = r['score']
+        self.pred_last = r['friendly_score']
         game_state.submit_turn()
-        assert game_state.turn_number < 20
+        #assert game_state.turn_number < 20
     """
     NOTE: All the methods after this point are part of the sample starter-algo
     strategy and can safely be replaced for your custom algo.
@@ -120,9 +166,11 @@ class AlgoStrategy(gamelib.AlgoCore):
                 
                 #demo_spawn_location_options = [[15, 1], [12, 1]]
                 #best_location = self.least_damage_spawn_location(game_state, demo_spawn_location_options)
+                strats = [right_edge_attack_s, left_edge_attack_s, right_edge_attack_d, left_edge_attack_d]
+                simulator.simulate_multiple(game_state, strats, {}, test_opt)(game_state, {})
 
-                game_state.attempt_spawn(DEMOLISHER, [15, 1], 2)
-                game_state.attempt_spawn(SCOUT, [16, 2], 100)
+                #game_state.attempt_spawn(DEMOLISHER, [15, 1], 2)
+                #game_state.attempt_spawn(SCOUT, [16, 2], 100)
 
     def build_defences(self, game_state):
         """

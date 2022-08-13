@@ -100,15 +100,15 @@ class AlgoStrategy(gamelib.AlgoCore):
             self.offensive_strategy(game_state)
             return
         # If the turn is less than 5, stall with interceptors and wait to see enemy's base
-        if game_state.get_resource(0) < 72:
+        
             #demo_spawn_location_options = [[7, 6], [20, 6]]
             #best_location = self.least_damage_spawn_location(game_state, demo_spawn_location_options)
-            self.build_early_defences(game_state)
+        self.build_early_defences(game_state)
             # game_state.attempt_spawn(DEMOLISHER, [15, 1], 2)
-        else:
+        if game_state.get_resource(0) > 66.5:
             self.midgame = 1
             self.sell_early(game_state)
-            self.build_all(game_state)
+            # self.build_all(game_state)
             # Now let's analyze the enemy base to see where their defenses are concentrated.
             # If they have many units in the front we can build a line for our demolishers to attack them at long range.
         
@@ -139,7 +139,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         wall_locations = [[3, 11], [5, 11], [22, 11], [24, 11], [4, 10], [6, 10], [23, 10], [6, 9], [21, 9], [7, 8], [20, 8], [7, 7], [20, 7]]
         game_state.attempt_remove(wall_locations)
     def build_early_defences(self, game_state):
-        wall_locations = [[3, 11], [5, 11], [22, 11], [24, 11], [4, 10], [6, 10], [21, 10], [23, 10], [6, 9], [21, 9], [7, 8], [20, 8], [7, 7], [20, 7]]
+        wall_locations = [[3, 11], [5, 11], [22, 11], [24, 11], [4, 11], [6, 10], [21, 10], [23, 11], [6, 9], [21, 9], [7, 8], [20, 8], [7, 7], [20, 7]]
         demolisher_locations = [[3, 10], [24, 10], [6, 7], [21, 7]]
         wall_upgrades = [[5, 11], [22, 11]]
         game_state.attempt_spawn(WALL, wall_locations)
