@@ -1,0 +1,6 @@
+beef\run.ps1 : AuthorizationManager check failed.
+At line:1 char:1
++ beef\run.ps1
++ ~~~~~~~~~~~~
+    + CategoryInfo          : SecurityError: (:) [], PSSecurityException
+    + FullyQualifiedErrorId : UnauthorizedAccess
