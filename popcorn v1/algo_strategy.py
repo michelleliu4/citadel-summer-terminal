@@ -106,6 +106,7 @@ class AlgoStrategy(gamelib.AlgoCore):
             
     def build_all(self, game_state):
         self.build_initial_defences(game_state)
+        is_left = True
         if game_state.get_resource(1, 1) > 12:
             self.self_destruct(is_left)
         game_state.attempt_spawn(WALL, self.additional_walls)
