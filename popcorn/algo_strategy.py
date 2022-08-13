@@ -29,6 +29,10 @@ class AlgoStrategy(gamelib.AlgoCore):
         gamelib.debug_write('Random seed: {}'.format(seed))
         self.midgame = 0
 
+
+    def time_interceptors(self, game_state):
+        pass
+
     def on_game_start(self, config):
         """ 
         Read in config and perform any initial setup here 
@@ -45,7 +49,10 @@ class AlgoStrategy(gamelib.AlgoCore):
         MP = 1
         SP = 0
         # This is a good place to do initial setup
-        self.scored_on_locations = []
+        self.scored_on_side = set()
+        self.scored_times = set()
+        self.self_destruct_times = set()
+        self.interceptor_locations = [[3, 10], [24, 10], [6, 7], [21, 7]]
 
     def on_turn(self, turn_state):
         """
@@ -60,7 +67,6 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.suppress_warnings(True)  #Comment or remove this line to enable warnings.
 
         self.starter_strategy(game_state)
-
         game_state.submit_turn()
 
 
@@ -98,12 +104,18 @@ class AlgoStrategy(gamelib.AlgoCore):
         if self.midgame == 1:
             self.build_all(game_state)
             self.offensive_strategy(game_state)
+            self.scored_on_side.clear()
+            self.scored_times.clear()
+            self.self_destruct_times.clear()
             return
         # If the turn is less than 5, stall with interceptors and wait to see enemy's base
         
             #demo_spawn_location_options = [[7, 6], [20, 6]]
             #best_location = self.least_damage_spawn_location(game_state, demo_spawn_location_options)
         self.build_early_defences(game_state)
+        self.scored_on_side.clear()
+        self.scored_times.clear()
+        self.self_destruct_times.clear()
             # game_state.attempt_spawn(DEMOLISHER, [15, 1], 2)
         if game_state.get_resource(0) > 66.5:
             self.midgame = 1
@@ -138,13 +150,38 @@ class AlgoStrategy(gamelib.AlgoCore):
     def sell_early(self, game_state):
         wall_locations = [[5, 12], [22, 12], [2, 11], [3, 11], [4, 11], [6, 11], [21, 11], [23, 11], [24, 11], [25, 11], [4, 10], [6, 10], [21, 10], [23, 10], [6, 9], [21, 9], [7, 8], [20, 8], [8, 7], [19, 7], [8, 6], [19, 6], [5, 11], [22, 11]]
         game_state.attempt_remove(wall_locations)
+
     def build_early_defences(self, game_state):
         wall_locations = [[5, 12], [22, 12], [2, 11], [3, 11], [4, 11], [6, 11], [21, 11], [23, 11], [24, 11], [25, 11], [4, 10], [6, 10], [21, 10], [23, 10], [6, 9], [21, 9], [7, 8], [20, 8], [8, 7], [19, 7], [8, 6], [19, 6]]
-        demolisher_locations = [[3, 10], [24, 10], [7, 6], [20, 6]]
+        
+
         turret_locations = [[5, 11], [22, 11]]
         wall_upgrades = [[5, 12], [22, 12]]
         game_state.attempt_spawn(WALL, wall_locations)
-        game_state.attempt_spawn(INTERCEPTOR, demolisher_locations)
+        if len(self.scored_times) > 0:
+            if(1 in self.scored_on_side):
+                for x in self.scored_times:
+                    for y in self.self_destruct_times:
+                        time_diff = x - y
+                        self.interceptor_locations[2][0]-=int(time_diff/4)
+                        self.interceptor_locations[2][1]+=int(time_diff/4)
+                        break
+                    else:
+                        continue
+                    break
+                        
+            if(-1 in self.scored_on_side):
+                for x in self.scored_times:
+                    for y in self.self_destruct_times:
+                        time_diff = x - y
+                        self.interceptor_locations[3][0]-=int(time_diff/4)
+                        self.interceptor_locations[3][1]+=int(time_diff/4)
+                        break
+                    else:
+                        continue
+                    break
+
+        game_state.attempt_spawn(INTERCEPTOR, self.interceptor_locations)
         game_state.attempt_spawn(TURRET, turret_locations)    
         game_state.attempt_upgrade(wall_upgrades)
 
@@ -280,6 +317,12 @@ class AlgoStrategy(gamelib.AlgoCore):
         state = json.loads(turn_string)
         events = state["events"]
         breaches = events["breach"]
+        self_destructs = events["selfDestruct"]
+        curr_frame = state["turnInfo"][2]
+        for self_destruct in self_destructs:
+            unit_owner_self = True if self_destruct[5] == 1 else False
+            if not unit_owner_self and curr_frame > 5:
+                self.self_destruct_times.add(curr_frame)
         for breach in breaches:
             location = breach[0]
             unit_owner_self = True if breach[4] == 1 else False
@@ -287,8 +330,12 @@ class AlgoStrategy(gamelib.AlgoCore):
             # 1 is integer for yourself, 2 is opponent (StarterKit code uses 0, 1 as player_index instead)
             if not unit_owner_self:
                 gamelib.debug_write("Got scored on at: {}".format(location))
-                self.scored_on_locations.append(location)
-                gamelib.debug_write("All locations: {}".format(self.scored_on_locations))
+
+                if(location[0] <= 13): #left
+                    self.scored_on_side.add(1)
+                else:
+                    self.scored_on_side.add(-1)
+                self.scored_times.add(curr_frame)
 
 
 if __name__ == "__main__":
