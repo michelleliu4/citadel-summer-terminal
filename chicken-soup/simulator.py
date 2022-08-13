@@ -22,7 +22,7 @@ def calculate_shield_bonus(support):
 def simulate_multiple(current_state, strategies, info, opt):
     # here, strategies are functions that modify the current state to produce simulatable attacks.
     # info should be a datastructure expected by the strategy functions, perhaps communicating relevant past patterns and such
-    # opt is the optimizer to be used to choose the best strategy or strategies.
+    # opt is the optimizer to be used to analyze the strategies and their results - it can return anything
 
     results = []
 
@@ -48,6 +48,14 @@ def simulate_multiple(current_state, strategies, info, opt):
     
     return opt(strategies, results)
 
+def place_units(state, units):
+
+    t = state.game_map[unit.x][unit.y] + units
+    state.game_map[unit.x][unit.y] = t
+
+def remove_units(state, location):
+
+    state.game_map[location] = []
 
 
 class Simulator():
@@ -77,18 +85,7 @@ class Simulator():
 
         self.can_attack = [TURRET, SCOUT, DEMOLISHER, INTERCEPTOR]
 
-        self.removal_needed = False
-        self.mobile_units_remain = True
-
-        self.units = []
-
-        # the only time we iterate through the game map, yaaay!
-        for cell in self.game_state.game_map:
-
-            self.units += self.game_state.game_map[cell]
-
-        self.enemy_health_damage = 0
-        self.friendly_health_damage = 0
+        self.reset(game_state)
 
     def reset(self, game_state):
 
@@ -105,6 +102,12 @@ class Simulator():
 
         self.enemy_health_damage = 0
         self.friendly_health_damage = 0
+
+        self.enemy_units_destroyed = {WALL: 0, TURRET: 0, SUPPORT: 0, SCOUT: 0, DEMOLISHER: 0, INTERCEPTOR: 0}
+        self.friendly_units_destroyed = {WALL: 0, TURRET: 0, SUPPORT: 0, SCOUT: 0, DEMOLISHER: 0, INTERCEPTOR: 0}
+
+        self.enemy_damage_done = 0
+        self.friendly_damage_done = 0
 
     def units_in_range(self, unit, units, r, f=lambda x: True):
         # this probably doesn't have to be a class method since self isn't used at all but also who cares
@@ -340,6 +343,17 @@ class Simulator():
 
                 stationary_units_destroyed = True
 
+            if not unit.active: 
+                
+                continue
+
+            if unit.player_index == 0:
+
+                self.friendly_units_destroyed[unit.unit_type] += 1
+
+            else:
+
+                self.enemy_units_destroyed[unit.unit_type] += 1
             #gamelib.debug_write(f"unit {unit} destroyed")
 
         # this basically forgets the old units
@@ -351,6 +365,12 @@ class Simulator():
 
         total = target.health + target.shield
         after_attack = max(0, total - amount)
+
+        if target.player_index == 1:
+            self.friendly_damage_done += total - after_attack
+        else:
+            self.enemy_damage_done += total - after_attack
+
         if after_attack < target.max_health:
             target.health = after_attack
             target.shield = 0
@@ -408,7 +428,16 @@ class Simulator():
             #gamelib.debug_write(f"{stationary_units_destroyed=}, {self.mobile_units_remain=}")
             frame_count += 1
         gamelib.debug_write(f"{frame_count} frames simulated")
-        return {'times': t, 'friendly_score': self.enemy_health_damage, 'enemy_score': self.friendly_health_damage, 'complete': sim_complete}
+
+        return {'times': t, 
+                'friendly_score': self.enemy_health_damage,
+                'enemy_score': self.friendly_health_damage, 
+                'complete': sim_complete, 
+                'friendly_units_destroyed': self.friendly_units_destroyed,
+                'enemy_units_destroyed': self.enemy_units_destroyed,
+                'friendly_damage_done': self.friendly_damage_done,
+                'enemy_damage_done': self.enemy_damage_done
+               }
 
 
 
