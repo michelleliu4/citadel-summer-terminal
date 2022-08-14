@@ -363,7 +363,6 @@ class GameState:
                 (not stationary or num == 1))
 
     def attempt_spawn(self, unit_type, locations, num=1):
-        gamelib.debug_write(f"{unit_type} attempted spawn at {locations}")
         """Attempts to spawn new units with the type given in the given locations.
 
         Args:
