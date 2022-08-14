@@ -107,7 +107,8 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.suppress_warnings(True)  #Comment or remove this line to enable warnings.
         self.funnel_location(game_state)
         self.starter_strategy(game_state)
-        self.num_enemy_self_destructs = 0
+        if game_state.turn_number % 10 == 0:
+            self.num_enemy_self_destructs = 0
         game_state.submit_turn()
 
 
@@ -116,6 +117,16 @@ class AlgoStrategy(gamelib.AlgoCore):
     strategy and can safely be replaced for your custom algo.
     """
 
+
+    def recreate(self, game_state, points):
+        gameMap = game_state.game_map
+        for point in points:
+            if len(point) != 1:
+                continue
+            currUnit = gameMap[point][0]
+            if currUnit.health/currUnit.max_health < 0.5:
+                game_state.attempt_remove(point)
+    
     def starter_strategy(self, game_state):
         """
         For defense we will use a spread out layout and some interceptors early on.
@@ -362,28 +373,16 @@ class AlgoStrategy(gamelib.AlgoCore):
             m = 0
             i = 0
 
-            cheap_chosen = False
-
             for j, r in enumerate(results):
                 
                 cheap = False
                 score = (r['friendly_score'] * 3 + count_sp_damage(r)) / (game_state.get_resource(1, 0) - r['mp']) if (game_state.get_resource(1, 0) - r['mp']) > 0 else 0
-                if game_state.get_resource(1, 0) - r['mp'] <= 12:
-                    cheap = True
-                if cheap and self.cheap_attacks >= 3:
-                    continue
                 
                 if score > m:
                     m = score
                     i = j
-                    if cheap: cheap_chosen = True
-                    else: cheap_chosen = False
 
-            if m > 2.7:
-                if cheap_chosen:
-                    self.cheap_attacks += 1
-                else:
-                    self.cheap_attacks = 0
+            if m > 2.5:
                 return strats[i]
 
             return None
@@ -407,8 +406,8 @@ class AlgoStrategy(gamelib.AlgoCore):
         def right_funnel(strat):
 
             def o(state, info):
-
-                if state.attempt_spawn(WALL, [3, 12]) != 0:
+                
+                if state.attempt_spawn(WALL, [3, 12]) != 0 or state.attempt_spawn(WALL, [18, 5]) != 0:
                     return strat(state, info)
                 return state
 
@@ -534,26 +533,21 @@ class AlgoStrategy(gamelib.AlgoCore):
         best(game_state, {})
 
         return
-               
+    
     def build_all(self, game_state):
         self.build_initial_defences(game_state)
         ran = random.randint(0, 100)
         if game_state.get_resource(1, 1) > 12 and self.enemy_spawn_side != 0 and ran > 50:
             self.self_destruct(self.is_left, game_state)
         game_state.attempt_spawn(WALL, self.additional_walls)
+        self.recreate(game_state, self.additional_walls)
         game_state.attempt_upgrade(self.key_wall_upgrades)
         game_state.attempt_spawn(TURRET, self.additional_turrets)
+        self.recreate(game_state, self.additional_turrets)
         game_state.attempt_upgrade(self.additional_wall_upgrades)
         game_state.attempt_upgrade(self.initial_turret_locations)
         game_state.attempt_upgrade(self.additional_turrets)
-        i = 10
-        while game_state.get_resource(0) > 4 and i < 19:
-            game_state.attempt_remove([i, 5])
-            game_state.attempt_spawn(SUPPORT, [i, 5])
-            i += 1
-        if game_state.get_resource(0) > 4: 
-            game_state.attempt_upgrade(self.support_locations)
-        if game_state.get_resource(0) > 20:
+        if game_state.get_resource(0) > 8:
             game_state.attempt_spawn(SUPPORT, self.additional_support_locations)
             game_state.attempt_upgrade(self.additional_support_locations)
         
@@ -630,9 +624,13 @@ class AlgoStrategy(gamelib.AlgoCore):
 
     def build_initial_defences(self, game_state):        
         game_state.attempt_spawn(WALL, self.initial_wall_locations)
-        game_state.attempt_spawn(TURRET, self.initial_turret_locations)    
+        self.recreate(game_state, self.initial_wall_locations)
+        game_state.attempt_spawn(TURRET, self.initial_turret_locations)
+        self.recreate(game_state, self.initial_turret_locations)    
         game_state.attempt_upgrade(self.initial_wall_upgrades)
-        game_state.attempt_spawn(WALL, [[i, 5] for i in range(10, 19)])
+        self.recreate(game_state, self.initial_wall_upgrades)
+        if self.num_enemy_self_destructs > 2:
+            game_state.attempt_spawn(WALL, [[i, 5] for i in range(10, 18)])
 
 
     def on_action_frame(self, turn_string):
@@ -660,6 +658,7 @@ class AlgoStrategy(gamelib.AlgoCore):
             unit_owner_self = True if self_destruct[5] == 1 else False
             if not unit_owner_self and self_destruct[3] == 5:
                 self.num_enemy_self_destructs +=1
+                break
                 
         for breach in breaches:
             location = breach[0]
