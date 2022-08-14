@@ -457,7 +457,8 @@ class Simulator():
                 'friendly_upgraded_units_destroyed': self.friendly_upgraded_units_destroyed,
                 'enemy_upgraded_units_destroyed': self.enemy_upgraded_units_destroyed,
                 'friendly_damage_done': self.friendly_damage_done,
-                'enemy_damage_done': self.enemy_damage_done
+                'enemy_damage_done': self.enemy_damage_done,
+                'mp': self.game_state.get_resource(1, 0)
                }
 
 

@@ -343,7 +343,25 @@ class AlgoStrategy(gamelib.AlgoCore):
 
             return None
 
-        best = simulator.simulate_multiple(game_state, strats, {}, opt)
+        def new_opt(strats, results):
+
+            m = 0
+            i = 0
+
+            for j, r in enumerate(results):
+
+                score = (r['friendly_score'] * 2 + count_sp_damage(r)) / (game_state.get_resource(1, 0) - r['mp'])
+                if score > m:
+                    m = score
+                    i = j
+
+            if m > 1:
+
+                return strats[i]
+
+            return None
+
+        best = simulator.simulate_multiple(game_state, strats, {}, new_opt)
 
         if not best:
 
