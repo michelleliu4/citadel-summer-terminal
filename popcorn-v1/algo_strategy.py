@@ -107,7 +107,8 @@ class AlgoStrategy(gamelib.AlgoCore):
             
     def build_all(self, game_state):
         self.build_initial_defences(game_state)
-        if game_state.get_resource(1, 1) > 12:
+        ran = random.randint(0, 100)
+        if game_state.get_resource(1, 1) > 12 and self.enemy_spawn_side != 0 and ran > 50:
             self.self_destruct(self.is_left, game_state)
         game_state.attempt_spawn(WALL, self.additional_walls)
         game_state.attempt_upgrade(self.key_wall_upgrades)
