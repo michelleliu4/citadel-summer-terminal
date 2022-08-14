@@ -63,7 +63,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.support_locations = [[10, 5], [11, 5], [12, 5], [13, 5], [14, 5], [15, 5], [16, 5], [17, 5]]
         self.self_destruct_walls_left = [[3, 11]]
         self.self_destruct_walls_right = [[24, 11]]
-        self.is_far_away = False
+        self.is_far_away = True
         self.is_left = True
         #positive means left neg means right 0 is no info
         self.enemy_spawn_side = 0
@@ -80,7 +80,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state = gamelib.GameState(self.config, turn_state)
         gamelib.debug_write('Performing turn {} of your custom algo strategy'.format(game_state.turn_number))
         game_state.suppress_warnings(True)  #Comment or remove this line to enable warnings.
-        
+        self.funnel_location(game_state)
         self.starter_strategy(game_state)
         game_state.submit_turn()
 
@@ -281,9 +281,9 @@ class AlgoStrategy(gamelib.AlgoCore):
             
     def build_all(self, game_state):
         self.build_initial_defences(game_state)
-        is_left = True
-        if game_state.get_resource(1, 1) > 12:
-            self.self_destruct(is_left, game_state)
+        ran = random.randint(0, 100)
+        if game_state.get_resource(1, 1) > 12 and self.enemy_spawn_side != 0 and ran > 50:
+            self.self_destruct(self.is_left, game_state)
         game_state.attempt_spawn(WALL, self.additional_walls)
         game_state.attempt_upgrade(self.key_wall_upgrades)
         game_state.attempt_spawn(TURRET, self.additional_turrets)
@@ -291,10 +291,33 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_upgrade(self.additional_turrets)
         if game_state.get_resource(0) > 8:
             game_state.attempt_spawn(SUPPORT, self.support_locations)
+    def funnel_location(self, game_state):
+        right_start = game_state.find_path_to_edge([16, 25])
+        left_start = game_state.find_path_to_edge([11, 25])
+        for path in right_start:
+            if path[1] == 14:
+                if path[0] >13:
+                    self.is_left = False
+                else:
+                    self.is_left = True
 
         
     def self_destruct(self, is_left, game_state):
-        #self.can_attack = False
+        if self.is_left and self.enemy_spawn_side > 0:
+            gamelib.debug_write(1)
+            self.is_far_away = False
+        if not self.is_left and self.enemy_spawn_side > 0:
+            gamelib.debug_write(2)
+
+            self.is_far_away = True
+        if self.is_left and self.enemy_spawn_side < 0:
+            gamelib.debug_write(3)
+
+            self.is_far_away = True
+        if not self.is_left and self.enemy_spawn_side < 0:
+            gamelib.debug_write(4)
+
+            self.is_far_away = False
         if is_left:
             game_state.attempt_spawn(WALL, self.self_destruct_walls_left)
             game_state.attempt_remove(self.self_destruct_walls_left)
@@ -308,6 +331,7 @@ class AlgoStrategy(gamelib.AlgoCore):
                 game_state.attempt_spawn(INTERCEPTOR, [4, 9], 1) #change if notice a lot of supports
         else:
             game_state.attempt_spawn(WALL, self.self_destruct_walls_right)
+            game_state.attempt_remove(self.self_destruct_walls_right)
             if self.is_far_away:
                 game_state.attempt_spawn(WALL, [[20, 7]])
                 game_state.attempt_remove([20,7])
