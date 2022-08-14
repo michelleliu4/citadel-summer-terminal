@@ -418,7 +418,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         self_destructs = events["selfDestruct"]
         curr_frame = state["turnInfo"][2]
         for spawn in spawns:
-            if spawn[1] == 3 or spawn[2] == 4 and spawn[3] == 2:
+            if spawn[1] == 3 or spawn[1] == 4 and spawn[3] == 2:
                 location = spawn[0]
                 self.enemy_spawn_side = 13.5 - location[0]
 
