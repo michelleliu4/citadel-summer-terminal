@@ -23,6 +23,27 @@ Advanced strategy tips:
   the actual current map state.
 """
 
+def count_sp_damage(result):
+
+    t = 0
+
+    su = {TURRET: 6, WALL: 0.5, SUPPORT: 4}
+    su_u = {TURRET: 10, WALL: 2, SUPPORT: 6}
+
+    for k in result['enemy_units_destroyed']:
+
+        if k in su:
+
+            t += result['enemy_units_destroyed'][k] * su[k]
+    
+    for k in result['enemy_upgraded_units_destroyed']:
+
+        if k in su_u:
+        
+            t += result['enemy_upgraded_units_destroyed'][k] * su_u[k]
+
+    return t
+
 class AlgoStrategy(gamelib.AlgoCore):
     def __init__(self):
         super().__init__()
@@ -51,7 +72,6 @@ class AlgoStrategy(gamelib.AlgoCore):
         # This is a good place to do initial setup
         self.scored_on_side = set()
         self.scored_times = set()
-        self.self_destruct_times = set()
         self.interceptor_locations = [[3, 10], [24, 10], [6, 7], [21, 7]]
         self.initial_turret_locations = [[1, 12], [26, 12], [4, 11], [23, 11]]
         self.initial_wall_upgrades = [[4,12], [23, 12]]
@@ -61,14 +81,18 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.additional_wall_upgrades = [[5,12],[22,12], [21, 11], [6, 11], [1, 13], [2, 13], [25, 13], [26, 13], [6, 11], [6, 10], [6, 9]]
         self.additional_turrets = [[5, 10],[22, 10], [25, 11], [2, 11]]
         self.support_locations = [[10, 5], [11, 5], [12, 5], [13, 5], [14, 5], [15, 5], [16, 5], [17, 5]]
+        self.additional_support_locations = [[8, 8], [9, 8], [10, 8], [11, 8], [12, 8], [13, 8], [14, 8], [15, 8], [16, 8], [17, 8], [18, 8], [19, 8]]
         self.self_destruct_walls_left = [[3, 11]]
         self.self_destruct_walls_right = [[24, 11]]
+        self.anti_self_destruct_walls = [[10, 5], [11, 5], [12, 5], [13, 5], [14, 5], [15, 5], [16, 5], [17, 5], [18, 5]]
+
         self.is_far_away = True
         self.is_left = True
         #positive means left neg means right 0 is no info
         self.enemy_spawn_side = 0
         self.enemy_support_count = 0
-
+        self.num_enemy_self_destructs = 0
+        self.cheap_attacks = 0
 
     def on_turn(self, turn_state):
         """
@@ -83,6 +107,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.suppress_warnings(True)  #Comment or remove this line to enable warnings.
         self.funnel_location(game_state)
         self.starter_strategy(game_state)
+        self.num_enemy_self_destructs = 0
         game_state.submit_turn()
 
 
@@ -109,7 +134,10 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         # after self_destruct defense...
         #if self.can_attack:
-        self.attack(game_state)
+        if self.num_enemy_self_destructs > 2:
+            self.delayed_attack(game_state)
+        else:
+            self.attack(game_state)
 
         # remove funnel blocks:
         game_state.attempt_remove([24, 12])
@@ -123,8 +151,9 @@ class AlgoStrategy(gamelib.AlgoCore):
 
             def o(state, info):
 
-                state.attempt_spawn(WALL, [24, 12])
-                return strat(state, info)
+                if state.attempt_spawn(WALL, [24, 12]) != 0:
+                    return strat(state, info)
+                return state
 
             return o
 
@@ -132,8 +161,9 @@ class AlgoStrategy(gamelib.AlgoCore):
 
             def o(state, info):
 
-                state.attempt_spawn(WALL, [3, 12])
-                return strat(state, info)
+                if state.attempt_spawn(WALL, [3, 12]) != 0:
+                    return strat(state, info)
+                return state
 
             return o
         
@@ -165,9 +195,9 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         def demo_only_l_cheap(state, info):
 
-            if state.number_affordable(SCOUT) > 6 + r:
+            if state.number_affordable(SCOUT) > 6 + r and state.number_affordable(SCOUT) <= 12:
 
-                state.attempt_spawn(DEMOLISHER, [7, 6], 100)
+                state.attempt_spawn(DEMOLISHER, [7, 6], 4)
 
             return state
 
@@ -181,9 +211,9 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         def scout_only_l_cheap(state, info):
 
-            if state.number_affordable(SCOUT) > 11 - r:
+            if state.number_affordable(SCOUT) > 11 - r and state.number_affordable(SCOUT) <= 11:
 
-                state.attempt_spawn(SCOUT, [7, 6], 100)
+                state.attempt_spawn(SCOUT, [7, 6], 11)
 
             return state
 
@@ -196,11 +226,17 @@ class AlgoStrategy(gamelib.AlgoCore):
                 
             return state
 
-        # TODO reflect this to demo_follows_scout_r
-        def demo_follows_scouts_l(state, info):
+        def demo_follows_scout_l(state, info):
             if state.number_affordable(SCOUT) > 15 + r:
                 state.attempt_spawn(SCOUT, [7, 6], 3)
                 state.attempt_spawn(DEMOLISHER, [6, 7], 100)
+
+            return state
+
+        def demo_follows_scout_r(state, info):
+            if state.number_affordable(SCOUT) > 15 + r:
+                state.attempt_spawn(SCOUT, [20, 6], 3)
+                state.attempt_spawn(DEMOLISHER, [21, 7], 100)
 
             return state
 
@@ -240,9 +276,9 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         def demo_only_r_cheap(state, info):
 
-            if state.number_affordable(SCOUT) > 6 + r:
+            if state.number_affordable(SCOUT) > 6 + r and state.number_affordable(SCOUT) <= 12:
 
-                state.attempt_spawn(DEMOLISHER, [20, 6], 100)
+                state.attempt_spawn(DEMOLISHER, [20, 6], 4)
 
             return state
 
@@ -256,9 +292,9 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         def scout_only_r_cheap(state, info):
 
-            if state.number_affordable(SCOUT) > 11 - r:
+            if state.number_affordable(SCOUT) > 11 - r and state.number_affordable(SCOUT) <= 11:
 
-                state.attempt_spawn(SCOUT, [20, 6], 100)
+                state.attempt_spawn(SCOUT, [20, 6], 11)
 
             return state
 
@@ -270,13 +306,6 @@ class AlgoStrategy(gamelib.AlgoCore):
                 state.attempt_spawn(DEMOLISHER, [20, 6], 100)
                 
             return state
-
-        def default(state, info):
-            
-            if self.is_left:
-                state.attempt_spawn(WALL, [3, 12])
-            else:
-                state.attempt_spawn(WALL, [24, 12])
 
         strats = [right_funnel(scout_follows_demo_l),
                   right_funnel(scout_on_demo_l),
@@ -293,9 +322,19 @@ class AlgoStrategy(gamelib.AlgoCore):
                   left_funnel(scout_only_r),
                   left_funnel(scout_only_r_cheap),
                   left_funnel(demo_follows_interceptor_r),
-                  left_funnel(demo_follows_scouts_l)]
+                  left_funnel(demo_follows_scout_l),
+                  right_funnel(demo_follows_scout_l)]
 
         random.shuffle(strats)
+
+        # what to do if no attack is chosen. in this case, close off one of the funnels
+        def default(state, info):
+
+            if self.is_left:
+                state.attempt_spawn(WALL, [3, 12])
+            else:
+                state.attempt_spawn(WALL, [24, 12])
+
 
         def count_sp_damage(result):
 
@@ -318,50 +357,33 @@ class AlgoStrategy(gamelib.AlgoCore):
 
             return t
         
-        def opt(strats, results):
-
-            m = 0
-            i = 0
-
-            for j, r in enumerate(results):
-
-                if r['friendly_score'] > m and r['complete']:
-                    m = r['friendly_score']
-                    i = j
-            
-            if m > 8:
-
-                return strats[i]
-
-            m = 0
-            i = 0
-
-            for j, r in enumerate(results):
-
-                if r['friendly_damage_done'] > m and r['complete']:
-                    m = r['friendly_damage_done']
-                    i = j
-            
-            if m > 1000:
-
-                return strats[i]
-
-            return None
-
         def new_opt(strats, results):
 
             m = 0
             i = 0
 
-            for j, r in enumerate(results):
+            cheap_chosen = False
 
+            for j, r in enumerate(results):
+                
+                cheap = False
                 score = (r['friendly_score'] * 3 + count_sp_damage(r)) / (game_state.get_resource(1, 0) - r['mp']) if (game_state.get_resource(1, 0) - r['mp']) > 0 else 0
+                if game_state.get_resource(1, 0) - r['mp'] <= 12:
+                    cheap = True
+                if cheap and self.cheap_attacks >= 3:
+                    continue
+                
                 if score > m:
                     m = score
                     i = j
+                    if cheap: cheap_chosen = True
+                    else: cheap_chosen = False
 
-            if m > 2.5:
-
+            if m > 2.7:
+                if cheap_chosen:
+                    self.cheap_attacks += 1
+                else:
+                    self.cheap_attacks = 0
                 return strats[i]
 
             return None
@@ -377,7 +399,142 @@ class AlgoStrategy(gamelib.AlgoCore):
         best(game_state, {})
 
         return
-            
+
+    def delayed_attack(self, game_state):
+
+        r = random.randint(0, 4)
+
+        def right_funnel(strat):
+
+            def o(state, info):
+
+                if state.attempt_spawn(WALL, [3, 12]) != 0:
+                    return strat(state, info)
+                return state
+
+            return o
+
+        def scout_follows_demo_r(state, info):
+
+            if state.number_affordable(SCOUT) > 16 + r:
+
+                state.attempt_spawn(DEMOLISHER, [14, 0], 3)
+                state.attempt_spawn(SCOUT, [18, 4], 100)
+
+            return state
+        def demo_follows_scout_r(state, info):
+
+            if state.number_affordable(SCOUT) > 16 + r:
+
+                state.attempt_spawn(DEMOLISHER, [18, 4], 3)
+                state.attempt_spawn(SCOUT, [14, 0], 100)
+
+            return state
+
+        def scout_on_demo_r(state, info):
+
+            if state.number_affordable(SCOUT) > 16 + r:
+
+                state.attempt_spawn(DEMOLISHER, [14, 0], 4)
+                state.attempt_spawn(SCOUT, [15, 1], 100)
+
+            return state
+
+        def demo_only_r(state, info):
+
+            if state.number_affordable(SCOUT) > 18 + r:
+
+                state.attempt_spawn(DEMOLISHER, [18, 4], 100)
+
+            return state
+
+        def demo_only_r_cheap(state, info):
+
+            if state.number_affordable(SCOUT) > 6 + r and state.number_affordable(SCOUT) <= 12:
+
+                state.attempt_spawn(DEMOLISHER, [18, 4], 4)
+
+            return state
+
+        def scout_only_r(state, info):
+
+            if state.number_affordable(SCOUT) > 15 - r:
+
+                state.attempt_spawn(SCOUT, [18, 4], 100)
+
+            return state
+
+        def scout_only_r_cheap(state, info):
+
+            if state.number_affordable(SCOUT) > 11 - r and state.number_affordable(SCOUT) <= 11:
+
+                state.attempt_spawn(SCOUT, [18, 4], 11)
+
+            return state
+
+        # what to do if no attack is chosen. in this case, close off one of the funnels
+        def default(state, info):
+
+            if self.is_left:
+                state.attempt_spawn(WALL, [3, 12])
+            else:
+                state.attempt_spawn(WALL, [24, 12])
+
+
+        def new_opt(strats, results):
+
+            m = 0
+            i = 0
+
+            cheap_chosen = False
+
+            for j, r in enumerate(results):
+                
+                cheap = False
+                score = (r['friendly_score'] * 3 + count_sp_damage(r)) / (game_state.get_resource(1, 0) - r['mp']) if (game_state.get_resource(1, 0) - r['mp']) > 0 else 0
+                if game_state.get_resource(1, 0) - r['mp'] <= 12:
+                    cheap = True
+                if cheap and self.cheap_attacks >= 3:
+                    continue
+                
+                if score > m:
+                    m = score
+                    i = j
+                    if cheap: cheap_chosen = True
+                    else: cheap_chosen = False
+
+            if m > 2.7:
+                if cheap_chosen:
+                    self.cheap_attacks += 1
+                else:
+                    self.cheap_attacks = 0
+                return strats[i]
+
+            return None
+
+        strats =  [right_funnel(scout_follows_demo_r),
+                  right_funnel(scout_follows_demo_r),
+                  right_funnel(scout_on_demo_r),
+                  right_funnel(demo_only_r),
+                  right_funnel(demo_only_r_cheap),
+                  right_funnel(scout_only_r),
+                  right_funnel(scout_only_r_cheap),
+                  right_funnel(demo_follows_scout_r)]
+
+        random.shuffle(strats)
+
+        best = simulator.simulate_multiple(game_state, strats, {}, new_opt)
+
+        if not best:
+
+            default(game_state, {})
+            # don't attack... no simulation rendered damage
+            return
+
+        best(game_state, {})
+
+        return
+               
     def build_all(self, game_state):
         self.build_initial_defences(game_state)
         ran = random.randint(0, 100)
@@ -389,8 +546,17 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_upgrade(self.additional_wall_upgrades)
         game_state.attempt_upgrade(self.initial_turret_locations)
         game_state.attempt_upgrade(self.additional_turrets)
-        if game_state.get_resource(0) > 8:
-            game_state.attempt_spawn(SUPPORT, self.support_locations)
+        i = 10
+        while game_state.get_resource(0) > 4 and i < 19:
+            game_state.attempt_remove([i, 5])
+            game_state.attempt_spawn(SUPPORT, [i, 5])
+            i += 1
+        if game_state.get_resource(0) > 4: 
+            game_state.attempt_upgrade(self.support_locations)
+        if game_state.get_resource(0) > 20:
+            game_state.attempt_spawn(SUPPORT, self.additional_support_locations)
+            game_state.attempt_upgrade(self.additional_support_locations)
+        
     def funnel_location(self, game_state):
         right_start = game_state.find_path_to_edge([16, 25])
         left_start = game_state.find_path_to_edge([11, 25])
@@ -466,6 +632,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_spawn(WALL, self.initial_wall_locations)
         game_state.attempt_spawn(TURRET, self.initial_turret_locations)    
         game_state.attempt_upgrade(self.initial_wall_upgrades)
+        game_state.attempt_spawn(WALL, [[i, 5] for i in range(10, 19)])
 
 
     def on_action_frame(self, turn_string):
@@ -488,11 +655,12 @@ class AlgoStrategy(gamelib.AlgoCore):
             if spawn[1] == 3 or spawn[1] == 4 and spawn[3] == 2:
                 location = spawn[0]
                 self.enemy_spawn_side = 13.5 - location[0]
-
+        
         for self_destruct in self_destructs:
             unit_owner_self = True if self_destruct[5] == 1 else False
-            if not unit_owner_self and curr_frame > 5:
-                self.self_destruct_times.add(curr_frame)
+            if not unit_owner_self and self_destruct[3] == 5:
+                self.num_enemy_self_destructs +=1
+                
         for breach in breaches:
             location = breach[0]
             unit_owner_self = True if breach[4] == 1 else False
