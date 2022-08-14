@@ -67,6 +67,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.is_left = True
         #positive means left neg means right 0 is no info
         self.enemy_spawn_side = 0
+        self.enemy_support_count = 0
 
 
     def on_turn(self, turn_state):
@@ -410,6 +411,9 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         
     def self_destruct(self, is_left, game_state):
+        spawn = 1
+        if self.enemy_support_count > 5:
+            spawn = 2
         if self.is_left and self.enemy_spawn_side > 0:
             gamelib.debug_write(1)
             self.is_far_away = False
@@ -431,22 +435,22 @@ class AlgoStrategy(gamelib.AlgoCore):
             if self.is_far_away:
                 game_state.attempt_spawn(WALL, [7, 7])
                 game_state.attempt_remove([7,7])
-                game_state.attempt_spawn(INTERCEPTOR, [6, 7], 1) #change if notice a lot of supports
+                game_state.attempt_spawn(INTERCEPTOR, [6, 7], spawn) #change if notice a lot of supports
             else:
                 game_state.attempt_spawn(WALL, [[5, 9]])
                 game_state.attempt_remove([5,9])
-                game_state.attempt_spawn(INTERCEPTOR, [4, 9], 1) #change if notice a lot of supports
+                game_state.attempt_spawn(INTERCEPTOR, [4, 9], spawn) #change if notice a lot of supports
         else:
             game_state.attempt_spawn(WALL, self.self_destruct_walls_right)
             game_state.attempt_remove(self.self_destruct_walls_right)
             if self.is_far_away:
                 game_state.attempt_spawn(WALL, [[20, 7]])
                 game_state.attempt_remove([20,7])
-                game_state.attempt_spawn(INTERCEPTOR, [21, 7], 1) #change if notice a lot of supports
+                game_state.attempt_spawn(INTERCEPTOR, [21, 7], spawn) #change if notice a lot of supports
             else:
                 game_state.attempt_spawn(WALL, [[22, 9]])
                 game_state.attempt_remove([22, 9])
-                game_state.attempt_spawn(INTERCEPTOR, [23, 9], 1) #change if notice a lot of supports
+                game_state.attempt_spawn(INTERCEPTOR, [23, 9], spawn) #change if notice a lot of supports
         
     def offensive_strategy(self, game_state):
         #if past turn did a lot of damag/scored, keep sending scouts for pressure?
@@ -478,6 +482,8 @@ class AlgoStrategy(gamelib.AlgoCore):
         breaches = events["breach"]
         self_destructs = events["selfDestruct"]
         curr_frame = state["turnInfo"][2]
+        self.enemy_support_count = len(state["p2Units"][1])
+        
         for spawn in spawns:
             if spawn[1] == 3 or spawn[1] == 4 and spawn[3] == 2:
                 location = spawn[0]
