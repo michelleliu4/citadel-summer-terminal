@@ -57,9 +57,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.initial_wall_upgrades = [[4,12], [23, 12]]
         self.key_wall_upgrades = [[0,13], [5, 11], [27,13], [23, 12], [22, 11], [5, 11]]
         self.initial_wall_locations = [[0, 13], [27, 13], [2, 12], [4, 12], [23, 12], [25, 12], [5, 11], [22, 11], [6, 10], [21, 10], [6, 9], [21, 9], [7, 8], [20, 8], [8, 7], [9, 7], [10, 7], [11, 7], [12, 7], [13, 7], [14, 7], [15, 7], [16, 7], [17, 7], [18, 7], [19, 7]]
-        self.additional_walls = [[5, 12], [22, 12], [21, 11], [6, 11]]
-        self.additional_wall_upgrades = [[5,12],[22,12], [21, 11], [6, 11]]
-        self.additional_turrets = [[5, 10],[22, 10]]
+        self.additional_walls = [[5, 12], [22, 12], [21, 11], [6, 11], [1, 13], [2, 13], [25, 13], [26, 13], [2, 12], [25, 12]]
+        self.additional_wall_upgrades = [[5,12],[22,12], [21, 11], [6, 11], [1, 13], [2, 13], [25, 13], [26, 13], [6, 11], [6, 10], [6, 9]]
+        self.additional_turrets = [[5, 10],[22, 10], [25, 11], [2, 11]]
         self.support_locations = [[10, 5], [11, 5], [12, 5], [13, 5], [14, 5], [15, 5], [16, 5], [17, 5]]
         self.self_destruct_walls_left = [[3, 11]]
         self.self_destruct_walls_right = [[24, 11]]
@@ -178,6 +178,10 @@ class AlgoStrategy(gamelib.AlgoCore):
                 state.attempt_spawn(DEMOLISHER, [7, 6], 100)
                 
             return state
+        def demo_follows_scouts_l(state, info):
+            if state.number_affordable(SCOUT) > 15 + r:
+                state.attempt_spawn(SCOUT, [7, 6], 3)
+                state.attempt_spawn(DEMOLISHER, [6, 7], 100)
 
         def scout_follows_demo_r(state, info):
 
@@ -185,6 +189,14 @@ class AlgoStrategy(gamelib.AlgoCore):
 
                 state.attempt_spawn(DEMOLISHER, [20, 6], 3)
                 state.attempt_spawn(SCOUT, [21, 7], 100)
+
+            return state
+        def demo_follows_scout_r(state, info):
+
+            if state.number_affordable(SCOUT) > 16 + r:
+
+                state.attempt_spawn(SCOUT, [20, 6], 3)
+                state.attempt_spawn(DEMOLISHER, [21, 7], 100)
 
             return state
 
@@ -231,11 +243,13 @@ class AlgoStrategy(gamelib.AlgoCore):
                   right_funnel(demo_only_l),
                   right_funnel(scout_only_l),
                   right_funnel(demo_follows_interceptor_l),
+                  right_funnel(scout_follows_demo_r),
                   left_funnel(scout_follows_demo_r),
                   left_funnel(scout_on_demo_r),
                   left_funnel(demo_only_r),
                   left_funnel(scout_only_r),
-                  left_funnel(demo_follows_interceptor_r)]
+                  left_funnel(demo_follows_interceptor_r),
+                  left_funnel(demo_follows_scouts_l)]
         
         def opt(strats, results):
 
@@ -287,6 +301,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_spawn(WALL, self.additional_walls)
         game_state.attempt_upgrade(self.key_wall_upgrades)
         game_state.attempt_spawn(TURRET, self.additional_turrets)
+        game_state.attempt_upgrade(self.additional_wall_upgrades)
         game_state.attempt_upgrade(self.initial_turret_locations)
         game_state.attempt_upgrade(self.additional_turrets)
         if game_state.get_resource(0) > 8:
@@ -294,12 +309,20 @@ class AlgoStrategy(gamelib.AlgoCore):
     def funnel_location(self, game_state):
         right_start = game_state.find_path_to_edge([16, 25])
         left_start = game_state.find_path_to_edge([11, 25])
-        for path in right_start:
-            if path[1] == 14:
-                if path[0] >13:
-                    self.is_left = False
-                else:
-                    self.is_left = True
+        if right_start != None:
+            for path in right_start:
+                if path[1] == 14:
+                    if path[0] > 13:
+                        self.is_left = False
+                    else:
+                        self.is_left = True
+        elif left_start != None:
+            for path in right_start:
+                if path[1] == 14:
+                    if path[0] > 13:
+                        self.is_left = False
+                    else:
+                        self.is_left = True
 
         
     def self_destruct(self, is_left, game_state):
