@@ -162,9 +162,25 @@ class AlgoStrategy(gamelib.AlgoCore):
 
             return state
 
+        def demo_only_l_cheap(state, info):
+
+            if state.number_affordable(SCOUT) > 6 + r:
+
+                state.attempt_spawn(DEMOLISHER, [7, 6], 100)
+
+            return state
+
         def scout_only_l(state, info):
 
             if state.number_affordable(SCOUT) > 15 - r:
+
+                state.attempt_spawn(SCOUT, [7, 6], 100)
+
+            return state
+
+        def scout_only_l_cheap(state, info):
+
+            if state.number_affordable(SCOUT) > 11 - r:
 
                 state.attempt_spawn(SCOUT, [7, 6], 100)
 
@@ -221,11 +237,27 @@ class AlgoStrategy(gamelib.AlgoCore):
 
             return state
 
+        def demo_only_r_cheap(state, info):
+
+            if state.number_affordable(SCOUT) > 6 + r:
+
+                state.attempt_spawn(DEMOLISHER, [20, 6], 100)
+
+            return state
+
         def scout_only_r(state, info):
 
             if state.number_affordable(SCOUT) > 15 - r:
 
-                state.attempt_spawn(DEMOLISHER, [20, 6], 100)
+                state.attempt_spawn(SCOUT, [20, 6], 100)
+
+            return state
+
+        def scout_only_r_cheap(state, info):
+
+            if state.number_affordable(SCOUT) > 11 - r:
+
+                state.attempt_spawn(SCOUT, [20, 6], 100)
 
             return state
 
@@ -248,13 +280,17 @@ class AlgoStrategy(gamelib.AlgoCore):
         strats = [right_funnel(scout_follows_demo_l),
                   right_funnel(scout_on_demo_l),
                   right_funnel(demo_only_l),
+                  right_funnel(demo_only_l_cheap),
                   right_funnel(scout_only_l),
+                  right_funnel(scout_only_l_cheap),
                   right_funnel(demo_follows_interceptor_l),
                   right_funnel(scout_follows_demo_r),
                   left_funnel(scout_follows_demo_r),
                   left_funnel(scout_on_demo_r),
                   left_funnel(demo_only_r),
+                  left_funnel(demo_only_r_cheap),
                   left_funnel(scout_only_r),
+                  left_funnel(scout_only_r_cheap),
                   left_funnel(demo_follows_interceptor_r),
                   left_funnel(demo_follows_scouts_l)]
 
