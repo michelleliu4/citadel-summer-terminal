@@ -354,7 +354,7 @@ class AlgoStrategy(gamelib.AlgoCore):
 
             for j, r in enumerate(results):
 
-                score = (r['friendly_score'] * 2 + count_sp_damage(r)) / (game_state.get_resource(1, 0) - r['mp']) if (game_state.get_resource(1, 0) - r['mp']) > 0 else 0
+                score = (r['friendly_score'] * 3 + count_sp_damage(r)) / (game_state.get_resource(1, 0) - r['mp']) if (game_state.get_resource(1, 0) - r['mp']) > 0 else 0
                 if score > m:
                     m = score
                     i = j

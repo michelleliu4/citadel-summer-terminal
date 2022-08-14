@@ -156,7 +156,7 @@ class Simulator():
             
             else:
 
-                gamelib.debug_write(f"pathfinding for edge {unit.target_edge} for {unit}")
+                #gamelib.debug_write(f"pathfinding for edge {unit.target_edge} for {unit}")
 
                 path = self.pathfinder.navigate_multiple_endpoints_faster([unit.x, unit.y], self.edges[unit.target_edge], self.game_state, self.units)
                 #gamelib.debug_write(f"{path}")
