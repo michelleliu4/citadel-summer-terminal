@@ -103,7 +103,9 @@ class Simulator():
         self.friendly_health_damage = 0
 
         self.enemy_units_destroyed = {WALL: 0, TURRET: 0, SUPPORT: 0, SCOUT: 0, DEMOLISHER: 0, INTERCEPTOR: 0}
+        self.enemy_upgraded_units_destroyed = {WALL: 0, TURRET: 0, SUPPORT: 0, SCOUT: 0, DEMOLISHER: 0, INTERCEPTOR: 0}
         self.friendly_units_destroyed = {WALL: 0, TURRET: 0, SUPPORT: 0, SCOUT: 0, DEMOLISHER: 0, INTERCEPTOR: 0}
+        self.friendly_upgraded_units_destroyed = {WALL: 0, TURRET: 0, SUPPORT: 0, SCOUT: 0, DEMOLISHER: 0, INTERCEPTOR: 0}
 
         self.enemy_damage_done = 0
         self.friendly_damage_done = 0
@@ -348,11 +350,23 @@ class Simulator():
 
             if unit.player_index == 0:
 
-                self.friendly_units_destroyed[unit.unit_type] += 1
+                if unit.upgraded:
+
+                    self.friendly_upgraded_units_destroyed[unit.unit_type] += 1
+
+                else:
+
+                    self.friendly_units_destroyed[unit.unit_type] += 1
 
             else:
 
-                self.enemy_units_destroyed[unit.unit_type] += 1
+                if unit.upgraded:
+
+                    self.enemy_upgraded_units_destroyed[unit.unit_type] += 1
+
+                else:
+
+                    self.enemy_units_destroyed[unit.unit_type] += 1
             #gamelib.debug_write(f"unit {unit} destroyed")
 
         # this basically forgets the old units
@@ -440,6 +454,8 @@ class Simulator():
                 'complete': sim_complete, 
                 'friendly_units_destroyed': self.friendly_units_destroyed,
                 'enemy_units_destroyed': self.enemy_units_destroyed,
+                'friendly_upgraded_units_destroyed': self.friendly_upgraded_units_destroyed,
+                'enemy_upgraded_units_destroyed': self.enemy_upgraded_units_destroyed,
                 'friendly_damage_done': self.friendly_damage_done,
                 'enemy_damage_done': self.enemy_damage_done
                }

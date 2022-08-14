@@ -178,10 +178,13 @@ class AlgoStrategy(gamelib.AlgoCore):
                 state.attempt_spawn(DEMOLISHER, [7, 6], 100)
                 
             return state
+            
         def demo_follows_scouts_l(state, info):
             if state.number_affordable(SCOUT) > 15 + r:
                 state.attempt_spawn(SCOUT, [7, 6], 3)
                 state.attempt_spawn(DEMOLISHER, [6, 7], 100)
+
+            return state
 
         def scout_follows_demo_r(state, info):
 
@@ -253,6 +256,23 @@ class AlgoStrategy(gamelib.AlgoCore):
                   left_funnel(scout_only_r),
                   left_funnel(demo_follows_interceptor_r),
                   left_funnel(demo_follows_scouts_l)]
+
+        def count_sp_damage(result):
+
+            t = 0
+
+            su = {TURRET: 6, WALL: 0.5, SUPPORT: 4}
+            su_u = {TURRET: 10, WALL: 2, SUPPORT: 6}
+
+            for k in results['enemy_units_destroyed']:
+
+                t += results['enemy_units_destroyed'][k] * su[k]
+            
+            for k in results['enemy_upgraded_units_destroyed']:
+                
+                t += results['enemy_upgraded_units_destroyed'][k] * su_u[k]
+
+            return t
         
         def opt(strats, results):
 
