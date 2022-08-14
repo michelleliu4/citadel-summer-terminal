@@ -411,11 +411,11 @@ class Simulator():
                 sim_complete = False
                 break
             if frame_count % 10 == 0:
-                gamelib.debug_write(f"simulating frame {frame_count}")
+                #gamelib.debug_write(f"simulating frame {frame_count}")
                 gamelib.debug_write(f"{stationary_units_destroyed=}, {self.mobile_units_remain=}")
 
             if stationary_units_destroyed:
-                gamelib.debug_write("pathfinding")
+                #gamelib.debug_write("pathfinding")
                 t1 = time.perf_counter()
                 self.pathfind_all()
                 t2 = time.perf_counter()
@@ -423,13 +423,13 @@ class Simulator():
                 stationary_units_destroyed = False
             
             t3 = time.perf_counter()
-            gamelib.debug_write("supporting")
+            #gamelib.debug_write("supporting")
             self.support_all()
             t4 = time.perf_counter()
-            gamelib.debug_write("moving")
+            #gamelib.debug_write("moving")
             self.move_all()
             t5 = time.perf_counter()
-            gamelib.debug_write("attacking")
+            #gamelib.debug_write("attacking")
             self.attack_all()
             t6 = time.perf_counter()
 
@@ -439,7 +439,7 @@ class Simulator():
 
             if self.removal_needed:
                 t7 = time.perf_counter()
-                gamelib.debug_write("removing")
+                #gamelib.debug_write("removing")
                 stationary_units_destroyed = self.remove_destroyed()
                 t8 = time.perf_counter()
                 t['removal'] += t8 - t7

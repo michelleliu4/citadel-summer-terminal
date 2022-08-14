@@ -359,7 +359,7 @@ class AlgoStrategy(gamelib.AlgoCore):
                     m = score
                     i = j
 
-            if m > 2:
+            if m > 2.5:
 
                 return strats[i]
 
