@@ -294,6 +294,8 @@ class AlgoStrategy(gamelib.AlgoCore):
                   left_funnel(demo_follows_interceptor_r),
                   left_funnel(demo_follows_scouts_l)]
 
+        random.shuffle(strats)
+
         def count_sp_damage(result):
 
             t = 0
