@@ -235,8 +235,11 @@ class AlgoStrategy(gamelib.AlgoCore):
             return state
 
         def default(state, info):
-
-            state.attempt_spawn(WALL, [3, 12])
+            
+            if self.is_left:
+                state.attempt_spawn(WALL, [3, 12])
+            else:
+                state.attempt_spawn(WALL, [24, 12])
 
         strats = [right_funnel(scout_follows_demo_l),
                   right_funnel(scout_on_demo_l),
