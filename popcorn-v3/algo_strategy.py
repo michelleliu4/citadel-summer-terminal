@@ -303,13 +303,17 @@ class AlgoStrategy(gamelib.AlgoCore):
             su = {TURRET: 6, WALL: 0.5, SUPPORT: 4}
             su_u = {TURRET: 10, WALL: 2, SUPPORT: 6}
 
-            for k in results['enemy_units_destroyed']:
+            for k in result['enemy_units_destroyed']:
 
-                t += results['enemy_units_destroyed'][k] * su[k]
+                if k in su:
+
+                    t += result['enemy_units_destroyed'][k] * su[k]
             
-            for k in results['enemy_upgraded_units_destroyed']:
+            for k in result['enemy_upgraded_units_destroyed']:
+
+                if k in su_u:
                 
-                t += results['enemy_upgraded_units_destroyed'][k] * su_u[k]
+                    t += result['enemy_upgraded_units_destroyed'][k] * su_u[k]
 
             return t
         
@@ -350,12 +354,12 @@ class AlgoStrategy(gamelib.AlgoCore):
 
             for j, r in enumerate(results):
 
-                score = (r['friendly_score'] * 2 + count_sp_damage(r)) / (game_state.get_resource(1, 0) - r['mp'])
+                score = (r['friendly_score'] * 2 + count_sp_damage(r)) / (game_state.get_resource(1, 0) - r['mp']) if (game_state.get_resource(1, 0) - r['mp']) > 0 else 0
                 if score > m:
                     m = score
                     i = j
 
-            if m > 1:
+            if m > 2:
 
                 return strats[i]
 
