@@ -356,7 +356,7 @@ class AlgoStrategy(gamelib.AlgoCore):
                     m = r['friendly_score']
                     i = j
             
-            if m > 8:
+            if m > 5:
 
                 return strats[i]
 
@@ -369,7 +369,7 @@ class AlgoStrategy(gamelib.AlgoCore):
                     m = r['friendly_damage_done']
                     i = j
             
-            if m > 1000:
+            if m > 600:
 
                 return strats[i]
 
