@@ -178,7 +178,8 @@ class AlgoStrategy(gamelib.AlgoCore):
                 state.attempt_spawn(DEMOLISHER, [7, 6], 100)
                 
             return state
-            
+
+        # TODO reflect this to demo_follows_scout_r
         def demo_follows_scouts_l(state, info):
             if state.number_affordable(SCOUT) > 15 + r:
                 state.attempt_spawn(SCOUT, [7, 6], 3)
